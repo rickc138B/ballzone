@@ -1,0 +1,577 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useGameSession } from '@/hooks/useGameSession'
+import { getShareToken, isOrganizerOfRun } from '@/lib/session-token'
+import { getSupabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
+
+export default function GamePage() {
+  const params = useParams()
+  const router = useRouter()
+  const runId = params.id as string
+  const shareToken = getShareToken(runId)
+  const isOrganizer = isOrganizerOfRun(runId)
+
+  const { state, actions } = useGameSession(runId, shareToken)
+  const { game, teamA, teamB, scoreEvents } = state
+
+  const [pointSelector, setPointSelector] = useState<'a' | 'b' | null>(null)
+  const [lastScored, setLastScored] = useState<'a' | 'b' | null>(null)
+  const [tieError, setTieError] = useState(false)
+  const [showAttribution, setShowAttribution] = useState(false)
+  const [scorerNames, setScorerNames] = useState<Record<string, string>>({})
+  const [savingAttribution, setSavingAttribution] = useState(false)
+  const [attributionDone, setAttributionDone] = useState(false)
+  const [needsSetup, setNeedsSetup] = useState(false)
+  const [teamAName, setTeamAName] = useState('Team A')
+  const [teamBName, setTeamBName] = useState('Team B')
+  const [teamAssignments, setTeamAssignments] = useState<Record<string, 'a' | 'b' | null>>({})
+  const [settingUp, setSettingUp] = useState(false)
+  const [players, setPlayers] = useState<{id: string, name: string}[]>([])
+
+  useEffect(() => {
+    async function fetchPlayers() {
+      const res = await fetch(`/api/runs/${runId}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const inPlayers = (data.attendance ?? [])
+        .filter((a: any) => a.status === 'in' || a.status === 'late')
+        .map((a: any) => ({
+          id: a.participant_id,
+          name: a.participant?.display_name ?? 'Anonymous',
+        }))
+      setPlayers(inPlayers)
+    }
+    fetchPlayers()
+  }, [runId])
+
+  useEffect(() => {
+    if (!state.loading && !game) setNeedsSetup(true)
+    if (teamA?.name) setTeamAName(teamA.name)
+    if (teamB?.name) setTeamBName(teamB.name)
+  }, [state.loading, game, teamA, teamB])
+
+  async function saveAttribution() {
+    if (savingAttribution) return
+    setSavingAttribution(true)
+    const supabase = getSupabase()
+    const updates = Object.entries(scorerNames).filter(([, name]) => name.trim())
+    await Promise.all(updates.map(([id, name]) =>
+      supabase.from('score_events').update({ scorer_name: name.trim() }).eq('id', id)
+    ))
+    setSavingAttribution(false)
+    setAttributionDone(true)
+    setShowAttribution(false)
+  }
+
+  function toggleAssignment(playerId: string) {
+    setTeamAssignments(prev => {
+      const cur = prev[playerId] ?? null
+      const next = cur === null ? 'a' : cur === 'a' ? 'b' : null
+      return { ...prev, [playerId]: next }
+    })
+  }
+
+  async function setupGame() {
+    if (settingUp) return
+    setSettingUp(true)
+    const supabase = getSupabase()
+
+    const { data: teamARow } = await supabase
+      .from('run_teams')
+      .insert({ session_id: runId, name: teamAName, color: '#22c55e', status: 'on_court' })
+      .select().single()
+
+    const { data: teamBRow } = await supabase
+      .from('run_teams')
+      .insert({ session_id: runId, name: teamBName, color: '#f97316', status: 'on_court' })
+      .select().single()
+
+    if (!teamARow || !teamBRow) { setSettingUp(false); return }
+
+    await supabase.from('sessions').upsert(
+      { id: runId, run_id: runId, status: 'active' },
+      { onConflict: 'id' }
+    )
+
+    const { data: games } = await supabase
+      .from('games')
+      .select('sequence_number')
+      .eq('session_id', runId)
+      .order('sequence_number', { ascending: false })
+      .limit(1)
+
+    const nextSeq = (games?.[0]?.sequence_number ?? 0) + 1
+
+    await supabase.from('games').insert({
+      session_id: runId,
+      sequence_number: nextSeq,
+      team_a_id: teamARow.id,
+      team_b_id: teamBRow.id,
+      status: 'pre_game',
+    })
+
+    setNeedsSetup(false)
+    setSettingUp(false)
+  }
+
+  async function handleTap(side: 'a' | 'b') {
+    if (game?.status !== 'live') return
+    if (pointSelector === side) {
+      setPointSelector(null)
+    } else {
+      setPointSelector(side)
+    }
+  }
+
+  async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3) {
+    await actions.addScore(side, points)
+    setLastScored(side)
+    setPointSelector(null)
+    setTimeout(() => setLastScored(null), 600)
+  }
+
+  const recentEvents = [...scoreEvents].reverse().filter(e => !e.voided).slice(0, 5)
+
+  if (state.loading) {
+    return (
+      <main className="min-h-dvh flex items-center justify-center">
+        <div className="text-white/40 text-lg">Loading...</div>
+      </main>
+    )
+  }
+
+  // Setup screen
+  if (needsSetup && isOrganizer) {
+    const unassigned = players.filter(p => !teamAssignments[p.id])
+    const teamAPlayers = players.filter(p => teamAssignments[p.id] === 'a')
+    const teamBPlayers = players.filter(p => teamAssignments[p.id] === 'b')
+
+    return (
+      <main className="min-h-dvh flex flex-col p-5 max-w-lg mx-auto overflow-y-auto">
+        <div className="pt-4 mb-6">
+          <div className="text-3xl mb-2">🏀</div>
+          <h1 className="text-2xl font-black text-white">Set Up Game</h1>
+          <p className="text-white/40 text-sm mt-1">Name teams · assign players · start scoring</p>
+        </div>
+
+        {/* Team name inputs */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div>
+            <label className="text-green-400 text-xs uppercase tracking-wider mb-1 block">Team A</label>
+            <input
+              value={teamAName}
+              onChange={e => setTeamAName(e.target.value)}
+              placeholder="Skins"
+              className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                         text-white placeholder:text-white/30 focus:outline-none
+                         focus:border-green-400 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-orange-400 text-xs uppercase tracking-wider mb-1 block">Team B</label>
+            <input
+              value={teamBName}
+              onChange={e => setTeamBName(e.target.value)}
+              placeholder="Shirts"
+              className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                         text-white placeholder:text-white/30 focus:outline-none
+                         focus:border-orange-400 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Player assignment */}
+        {players.length > 0 && (
+          <div className="mb-6">
+            <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+              Assign players — tap to cycle: unassigned → {teamAName || 'Team A'} → {teamBName || 'Team B'}
+            </p>
+
+            {/* Team A players */}
+            {teamAPlayers.length > 0 && (
+              <div className="mb-3">
+                <p className="text-green-400 text-xs font-semibold mb-1.5">
+                  {teamAName || 'Team A'} · {teamAPlayers.length}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {teamAPlayers.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => toggleAssignment(p.id)}
+                      className="px-3 py-1.5 rounded-xl text-sm font-semibold
+                                 bg-green-500/20 text-green-300 border border-green-500/40
+                                 active:scale-95 transition-transform"
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Team B players */}
+            {teamBPlayers.length > 0 && (
+              <div className="mb-3">
+                <p className="text-orange-400 text-xs font-semibold mb-1.5">
+                  {teamBName || 'Team B'} · {teamBPlayers.length}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {teamBPlayers.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => toggleAssignment(p.id)}
+                      className="px-3 py-1.5 rounded-xl text-sm font-semibold
+                                 bg-orange-500/20 text-orange-300 border border-orange-500/40
+                                 active:scale-95 transition-transform"
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Unassigned */}
+            {unassigned.length > 0 && (
+              <div>
+                <p className="text-white/30 text-xs font-semibold mb-1.5">
+                  Unassigned · {unassigned.length}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {unassigned.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => toggleAssignment(p.id)}
+                      className="px-3 py-1.5 rounded-xl text-sm font-semibold
+                                 bg-white/10 text-white/50 border border-white/10
+                                 active:scale-95 transition-transform"
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={setupGame}
+          disabled={settingUp}
+          className="w-full py-4 rounded-2xl font-bold text-lg bg-orange-500 text-white
+                     active:scale-95 transition-transform disabled:opacity-50"
+        >
+          {settingUp ? 'Setting up...' : 'Start Scoring →'}
+        </button>
+      </main>
+    )
+  }
+
+  if (needsSetup && !isOrganizer) {
+    return (
+      <main className="min-h-dvh flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-5xl mb-4">⏳</div>
+        <h1 className="text-xl font-bold text-white mb-2">Game not started yet</h1>
+        <p className="text-white/50 text-sm">Waiting for the organizer to start the game.</p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-dvh flex flex-col select-none" style={{ touchAction: 'manipulation' }}>
+
+      {/* Status bar */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <button
+          onClick={() => router.push(`/run/${runId}`)}
+          className="text-white/40 text-sm"
+        >
+          ← Run
+        </button>
+        <div className={cn(
+          'text-xs font-semibold px-3 py-1 rounded-full',
+          game?.status === 'live' ? 'bg-green-500/20 text-green-400' :
+          game?.status === 'contested' ? 'bg-red-500/20 text-red-400' :
+          game?.status === 'pre_game' ? 'bg-white/10 text-white/40' :
+          'bg-white/10 text-white/40'
+        )}>
+          {game?.status === 'live' ? '● LIVE' :
+           game?.status === 'contested' ? '⚠ DISPUTED' :
+           game?.status === 'pre_game' ? 'NOT STARTED' :
+           game?.status === 'complete' ? 'FINAL' : ''}
+        </div>
+        <div className="text-white/40 text-sm">
+          G{game?.sequence_number ?? 1}
+        </div>
+      </div>
+
+      {/* Score Display */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex h-[55vh]">
+
+          {/* Team A tap zone */}
+          <button
+            className={cn(
+              'flex-1 flex flex-col items-center justify-center relative transition-all duration-150',
+              'active:opacity-80',
+              game?.status === 'live' ? 'cursor-pointer' : 'cursor-default',
+              lastScored === 'a' ? 'bg-green-500/10' : ''
+            )}
+            onClick={() => handleTap('a')}
+            disabled={game?.status !== 'live'}
+          >
+            <div className="text-white/50 text-sm font-semibold mb-2 uppercase tracking-wider">
+              {teamA?.name ?? 'Team A'}
+            </div>
+            <div className={cn(
+              'text-[7rem] font-black leading-none transition-all duration-150',
+              'text-green-400',
+              lastScored === 'a' ? 'scale-110' : 'scale-100'
+            )}>
+              {game?.score_a ?? 0}
+            </div>
+            {game?.status === 'live' && (
+              <div className="mt-4 text-white/20 text-xs">TAP TO SCORE</div>
+            )}
+          </button>
+
+          {/* Divider */}
+          <div className="flex flex-col items-center justify-center px-2">
+            <div className="text-white/20 text-3xl font-thin">|</div>
+          </div>
+
+          {/* Team B tap zone */}
+          <button
+            className={cn(
+              'flex-1 flex flex-col items-center justify-center relative transition-all duration-150',
+              'active:opacity-80',
+              game?.status === 'live' ? 'cursor-pointer' : 'cursor-default',
+              lastScored === 'b' ? 'bg-orange-500/10' : ''
+            )}
+            onClick={() => handleTap('b')}
+            disabled={game?.status !== 'live'}
+          >
+            <div className="text-white/50 text-sm font-semibold mb-2 uppercase tracking-wider">
+              {teamB?.name ?? 'Team B'}
+            </div>
+            <div className={cn(
+              'text-[7rem] font-black leading-none transition-all duration-150',
+              'text-orange-400',
+              lastScored === 'b' ? 'scale-110' : 'scale-100'
+            )}>
+              {game?.score_b ?? 0}
+            </div>
+            {game?.status === 'live' && (
+              <div className="mt-4 text-white/20 text-xs">TAP TO SCORE</div>
+            )}
+          </button>
+        </div>
+
+        {/* Point selector overlay */}
+        {pointSelector && (
+          <div className="px-4 py-3 bg-white/5 border-t border-white/10">
+            <p className="text-white/40 text-xs text-center mb-3 uppercase tracking-wider">
+              How many points?
+            </p>
+            <div className="flex gap-3">
+              {([1, 2, 3] as const).map(pts => (
+                <button
+                  key={pts}
+                  onClick={() => scorePoints(pointSelector, pts)}
+                  className={cn(
+                    'flex-1 py-4 rounded-2xl font-black text-2xl',
+                    'active:scale-95 transition-transform',
+                    pointSelector === 'a'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                  )}
+                >
+                  {pts}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPointSelector(null)}
+              className="w-full mt-2 py-2 text-white/30 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Controls */}
+        <div className="px-4 py-3 border-t border-white/10 space-y-2">
+
+          {/* Organizer controls */}
+          {isOrganizer && (
+            <div className="flex gap-2">
+              {game?.status === 'pre_game' && (
+                <button
+                  onClick={actions.startGame}
+                  className="flex-1 py-3 rounded-xl bg-green-500 text-white font-bold"
+                >
+                  Start Game
+                </button>
+              )}
+              {game?.status === 'live' && (
+                <>
+                  <button
+                    onClick={actions.undo}
+                    className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold border border-white/20"
+                  >
+                    ↩ Undo
+                  </button>
+                  <button
+                    onClick={actions.flagDispute}
+                    className="py-3 px-4 rounded-xl bg-red-500/20 text-red-400 font-semibold border border-red-500/20"
+                  >
+                    ⚠
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (game?.score_a === game?.score_b) {
+                        setTieError(true)
+                        setTimeout(() => setTieError(false), 2000)
+                        return
+                      }
+                      await actions.endGame()
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-bold"
+                  >
+                    {tieError ? "It's a tie!" : "End Game"}
+                  </button>
+                </>
+              )}
+              {game?.status === 'contested' && (
+                <button
+                  onClick={actions.resolveDispute}
+                  className="flex-1 py-3 rounded-xl bg-green-500 text-white font-bold"
+                >
+                  ✓ Resolve Dispute
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Non-organizer undo (anyone can undo last tap) */}
+          {!isOrganizer && game?.status === 'live' && (
+            <button
+              onClick={actions.undo}
+              className="w-full py-3 rounded-xl bg-white/10 text-white/60 font-semibold border border-white/20"
+            >
+              ↩ Undo last score
+            </button>
+          )}
+
+          {/* Game complete */}
+          {game?.status === 'complete' && (
+            <div className="text-center py-2">
+              <p className="text-white font-bold text-lg">
+                {game.winner_team_id === game.team_a_id
+                  ? `${teamA?.name ?? 'Team A'} wins! 🏆`
+                  : `${teamB?.name ?? 'Team B'} wins! 🏆`}
+              </p>
+              {isOrganizer && !attributionDone && !showAttribution && (
+                <button
+                  onClick={() => setShowAttribution(true)}
+                  className="mt-3 text-sm px-4 py-2 rounded-xl bg-white/10 text-white/60 border border-white/10"
+                >
+                  🖊 Who scored? (optional)
+                </button>
+              )}
+              {attributionDone && (
+                <p className="mt-2 text-green-400 text-xs">✓ Scorer names saved</p>
+              )}
+              {isOrganizer && (
+                <button
+                  onClick={() => setNeedsSetup(true)}
+                  className="mt-2 text-orange-400 text-sm underline underline-offset-2 block mx-auto"
+                >
+                  Next game →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Score log */}
+        {recentEvents.length > 0 && (
+          <div className="px-4 py-3 border-t border-white/5">
+            <p className="text-white/20 text-xs uppercase tracking-wider mb-2">Recent</p>
+            <div className="space-y-1">
+              {recentEvents.map((e, i) => {
+                const isA = game && e.team_id === game.team_a_id
+                return (
+                  <div key={e.id} className="flex items-center gap-2">
+                    <div className={cn(
+                      'w-2 h-2 rounded-full',
+                      isA ? 'bg-green-400' : 'bg-orange-400'
+                    )} />
+                    <span className={cn(
+                      'text-sm',
+                      isA ? 'text-green-400' : 'text-orange-400'
+                    )}>
+                      {isA ? (teamA?.name ?? 'Team A') : (teamB?.name ?? 'Team B')}
+                    </span>
+                    <span className="text-white/40 text-sm">+{e.points}</span>
+                    {i === 0 && <span className="text-white/20 text-xs ml-auto">latest</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      {/* Attribution modal */}
+      {showAttribution && game && (
+        <div className="fixed inset-0 bg-black/80 flex flex-col justify-end z-50">
+          <div className="bg-[#1a1a1a] rounded-t-3xl p-5 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-white font-black text-lg">Who scored?</h2>
+                <p className="text-white/40 text-xs mt-0.5">Optional — skip any you don't know</p>
+              </div>
+              <button
+                onClick={() => setShowAttribution(false)}
+                className="text-white/30 text-sm px-3 py-1.5 rounded-lg bg-white/10"
+              >
+                Skip
+              </button>
+            </div>
+            <div className="space-y-3 mb-5">
+              {scoreEvents.filter(e => !e.voided).map((e, i) => {
+                const isA = e.team_id === game.team_a_id
+                return (
+                  <div key={e.id} className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isA ? 'bg-green-400' : 'bg-orange-400'}`} />
+                    <span className={`text-sm w-16 flex-shrink-0 ${isA ? 'text-green-400' : 'text-orange-400'}`}>
+                      +{e.points}pts
+                    </span>
+                    <input
+                      value={scorerNames[e.id] ?? ''}
+                      onChange={ev => setScorerNames(s => ({ ...s, [e.id]: ev.target.value }))}
+                      placeholder={`Scorer ${i + 1}`}
+                      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2
+                                 text-white text-sm placeholder:text-white/20 focus:outline-none
+                                 focus:border-orange-500"
+                    />
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              onClick={saveAttribution}
+              disabled={savingAttribution}
+              className="w-full py-3 rounded-2xl font-bold bg-orange-500 text-white disabled:opacity-50"
+            >
+              {savingAttribution ? 'Saving...' : 'Save Names'}
+            </button>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
