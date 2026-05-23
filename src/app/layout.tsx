@@ -8,11 +8,12 @@ export const metadata: Metadata = {
   title: 'Ballzone',
   description: 'Pickup basketball, organized.',
   icons: {
-    icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏀</text></svg>',
-    apple: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏀</text></svg>',
+    icon: '/icon-192.png',
+    apple: '/icon-192.png',
   },
-  themeColor: '#1a1a2e',
+  themeColor: '#f97316',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  manifest: '/manifest.json',
 }
 
 export default function RootLayout({
