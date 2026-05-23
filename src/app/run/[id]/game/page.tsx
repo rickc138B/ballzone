@@ -18,11 +18,13 @@ export default function GamePage() {
   const { game, teamA, teamB, scoreEvents } = state
 
   const [pointSelector, setPointSelector] = useState<'a' | 'b' | null>(null)
+  const [selectedScorer, setSelectedScorer] = useState<string | null>(null)
   const [lastScored, setLastScored] = useState<'a' | 'b' | null>(null)
   const [tieError, setTieError] = useState(false)
   const [showAttribution, setShowAttribution] = useState(false)
   const [scorerNames, setScorerNames] = useState<Record<string, string>>({})
   const [savingAttribution, setSavingAttribution] = useState(false)
+  const [copiedResult, setCopiedResult] = useState(false)
   const [attributionDone, setAttributionDone] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [teamAName, setTeamAName] = useState('Team A')
@@ -121,15 +123,18 @@ export default function GamePage() {
     if (game?.status !== 'live') return
     if (pointSelector === side) {
       setPointSelector(null)
+      setSelectedScorer(null)
     } else {
       setPointSelector(side)
+      setSelectedScorer(null)
     }
   }
 
   async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3) {
-    await actions.addScore(side, points)
+    await actions.addScore(side, points, selectedScorer ?? undefined)
     setLastScored(side)
     setPointSelector(null)
+    setSelectedScorer(null)
     setTimeout(() => setLastScored(null), 600)
   }
 
@@ -371,36 +376,71 @@ export default function GamePage() {
         </div>
 
         {/* Point selector overlay */}
-        {pointSelector && (
-          <div className="px-4 py-3 bg-white/5 border-t border-white/10">
-            <p className="text-white/40 text-xs text-center mb-3 uppercase tracking-wider">
-              How many points?
-            </p>
-            <div className="flex gap-3">
-              {([1, 2, 3] as const).map(pts => (
-                <button
-                  key={pts}
-                  onClick={() => scorePoints(pointSelector, pts)}
-                  className={cn(
-                    'flex-1 py-4 rounded-2xl font-black text-2xl',
-                    'active:scale-95 transition-transform',
-                    pointSelector === 'a'
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                  )}
-                >
-                  {pts}
-                </button>
-              ))}
+        {pointSelector && (() => {
+          const sideColor = pointSelector === 'a' ? 'green' : 'orange'
+          const sidePlayers = players.filter(p =>
+            teamAssignments[p.id] === pointSelector
+          )
+          return (
+            <div className="px-4 py-3 bg-white/5 border-t border-white/10">
+              {/* Player chips */}
+              {sidePlayers.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-white/30 text-xs text-center mb-2 uppercase tracking-wider">
+                    Who scored? (optional)
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {sidePlayers.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => setSelectedScorer(prev => prev === p.id ? null : p.id)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-xl text-sm font-semibold transition-all active:scale-95',
+                          selectedScorer === p.id
+                            ? pointSelector === 'a'
+                              ? 'bg-green-500 text-white'
+                              : 'bg-orange-500 text-white'
+                            : 'bg-white/10 text-white/60 border border-white/10'
+                        )}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Points */}
+              <p className="text-white/40 text-xs text-center mb-2 uppercase tracking-wider">
+                {selectedScorer
+                  ? `${players.find(p => p.id === selectedScorer)?.name} scored...`
+                  : 'How many points?'}
+              </p>
+              <div className="flex gap-3">
+                {([1, 2, 3] as const).map(pts => (
+                  <button
+                    key={pts}
+                    onClick={() => scorePoints(pointSelector, pts)}
+                    className={cn(
+                      'flex-1 py-4 rounded-2xl font-black text-2xl',
+                      'active:scale-95 transition-transform',
+                      pointSelector === 'a'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                    )}
+                  >
+                    {pts}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => { setPointSelector(null); setSelectedScorer(null) }}
+                className="w-full mt-2 py-2 text-white/30 text-sm"
+              >
+                Cancel
+              </button>
             </div>
-            <button
-              onClick={() => setPointSelector(null)}
-              className="w-full mt-2 py-2 text-white/30 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Controls */}
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
@@ -467,34 +507,71 @@ export default function GamePage() {
           )}
 
           {/* Game complete */}
-          {game?.status === 'complete' && (
-            <div className="text-center py-2">
-              <p className="text-white font-bold text-lg">
-                {game.winner_team_id === game.team_a_id
-                  ? `${teamA?.name ?? 'Team A'} wins! 🏆`
-                  : `${teamB?.name ?? 'Team B'} wins! 🏆`}
-              </p>
-              {isOrganizer && !attributionDone && !showAttribution && (
+          {game?.status === 'complete' && (() => {
+            const winnerIsA = game.winner_team_id === game.team_a_id
+            const winnerName = winnerIsA ? (teamA?.name ?? 'Team A') : (teamB?.name ?? 'Team B')
+            const winnerScore = winnerIsA ? game.score_a : game.score_b
+            const loserScore = winnerIsA ? game.score_b : game.score_a
+
+            // duration
+            let durationStr = ''
+            if (game.started_at && game.ended_at) {
+              const mins = Math.round((new Date(game.ended_at).getTime() - new Date(game.started_at).getTime()) / 60000)
+              durationStr = `${mins}m`
+            }
+
+            // top scorer
+            const scorerTotals: Record<string, { name: string; points: number }> = {}
+            scoreEvents.filter(e => !e.voided).forEach(e => {
+              const key = e.scored_by_player_id ?? e.scorer_name ?? null
+              if (!key) return
+              const name = e.scorer_name ?? players.find(p => p.id === e.scored_by_player_id)?.name ?? 'Unknown'
+              if (!scorerTotals[key]) scorerTotals[key] = { name, points: 0 }
+              scorerTotals[key].points += e.points
+            })
+            const topScorer = Object.values(scorerTotals).sort((a, b) => b.points - a.points)[0] ?? null
+
+            function copyResult() {
+              const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+              const lines = [
+                `🏀 ${winnerName} wins! ${winnerScore}–${loserScore}`,
+                topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.points}pts)` : null,
+                durationStr ? `⏱ ${durationStr}` : null,
+                `${appUrl}/run/${runId}`,
+              ].filter(Boolean)
+              navigator.clipboard.writeText(lines.join('\n'))
+              setCopiedResult(true)
+              setTimeout(() => setCopiedResult(false), 2000)
+            }
+
+            return (
+              <div className="px-4 py-4 space-y-3">
+                <div className="card p-4 text-center border-orange-500/30">
+                  <p className="text-orange-400 text-xs uppercase tracking-wider font-semibold mb-1">Final</p>
+                  <p className="text-white font-black text-2xl mb-0.5">{winnerName} wins! 🏆</p>
+                  <p className="text-white/50 text-4xl font-black">{winnerScore}–{loserScore}</p>
+                  <div className="flex justify-center gap-4 mt-3 text-white/30 text-xs">
+                    {durationStr && <span>⏱ {durationStr}</span>}
+                    {topScorer && <span>🔥 {topScorer.name} · {topScorer.points}pts</span>}
+                  </div>
+                </div>
                 <button
-                  onClick={() => setShowAttribution(true)}
-                  className="mt-3 text-sm px-4 py-2 rounded-xl bg-white/10 text-white/60 border border-white/10"
+                  onClick={copyResult}
+                  className="w-full py-3 rounded-2xl font-bold bg-white/10 text-white border border-white/20 text-sm"
                 >
-                  🖊 Who scored? (optional)
+                  {copiedResult ? '✓ Copied!' : '📋 Copy Result'}
                 </button>
-              )}
-              {attributionDone && (
-                <p className="mt-2 text-green-400 text-xs">✓ Scorer names saved</p>
-              )}
-              {isOrganizer && (
-                <button
-                  onClick={() => setNeedsSetup(true)}
-                  className="mt-2 text-orange-400 text-sm underline underline-offset-2 block mx-auto"
-                >
-                  Next game →
-                </button>
-              )}
-            </div>
-          )}
+                {isOrganizer && (
+                  <button
+                    onClick={() => setNeedsSetup(true)}
+                    className="w-full py-3 rounded-2xl font-bold bg-orange-500 text-white text-sm"
+                  >
+                    Next game →
+                  </button>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Score log */}
@@ -517,6 +594,14 @@ export default function GamePage() {
                       {isA ? (teamA?.name ?? 'Team A') : (teamB?.name ?? 'Team B')}
                     </span>
                     <span className="text-white/40 text-sm">+{e.points}</span>
+                    {e.scorer_name && (
+                      <span className="text-white/30 text-xs">{e.scorer_name}</span>
+                    )}
+                    {!e.scorer_name && e.scored_by_player_id && (
+                      <span className="text-white/30 text-xs">
+                        {players.find(p => p.id === e.scored_by_player_id)?.name}
+                      </span>
+                    )}
                     {i === 0 && <span className="text-white/20 text-xs ml-auto">latest</span>}
                   </div>
                 )
