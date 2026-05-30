@@ -32,6 +32,10 @@ export default function GamePage() {
   const [teamAssignments, setTeamAssignments] = useState<Record<string, 'a' | 'b' | null>>({})
   const [settingUp, setSettingUp] = useState(false)
   const [players, setPlayers] = useState<{id: string, name: string}[]>([])
+  const [walkInName, setWalkInName] = useState('')
+  const [startScoreA, setStartScoreA] = useState(0)
+  const [startScoreB, setStartScoreB] = useState(0)
+  const [showStartScore, setShowStartScore] = useState(false)
 
   useEffect(() => {
     async function fetchPlayers() {
@@ -66,6 +70,15 @@ export default function GamePage() {
     setSavingAttribution(false)
     setAttributionDone(true)
     setShowAttribution(false)
+  }
+
+  function addWalkIn() {
+    const name = walkInName.trim()
+    if (!name) return
+    const id = `walkin_${Date.now()}`
+    setPlayers(prev => [...prev, { id, name }])
+    setTeamAssignments(prev => ({ ...prev, [id]: null }))
+    setWalkInName('')
   }
 
   function toggleAssignment(playerId: string) {
@@ -107,13 +120,25 @@ export default function GamePage() {
 
     const nextSeq = (games?.[0]?.sequence_number ?? 0) + 1
 
-    await supabase.from('games').insert({
+    const { data: newGame } = await supabase.from('games').insert({
       session_id: runId,
       sequence_number: nextSeq,
       team_a_id: teamARow.id,
       team_b_id: teamBRow.id,
       status: 'pre_game',
-    })
+      score_a: startScoreA,
+      score_b: startScoreB,
+    }).select().single()
+
+    if (newGame && (startScoreA > 0 || startScoreB > 0)) {
+      await supabase.from('score_events').insert({
+        game_id: newGame.id,
+        team_id: teamARow.id,
+        points: 0,
+        scorer_name: '↩ Joined at ' + startScoreA + '–' + startScoreB,
+        voided: false,
+      })
+    }
 
     setNeedsSetup(false)
     setSettingUp(false)
@@ -155,15 +180,15 @@ export default function GamePage() {
     const teamBPlayers = players.filter(p => teamAssignments[p.id] === 'b')
 
     return (
-      <main className="min-h-dvh flex flex-col p-5 max-w-lg mx-auto overflow-y-auto">
-        <div className="pt-4 mb-6">
+      <main className="min-h-dvh flex flex-col p-5 max-w-lg mx-auto overflow-y-auto pb-10">
+        <div className="pt-4 mb-5">
           <div className="text-3xl mb-2">🏀</div>
           <h1 className="text-2xl font-black text-white">Set Up Game</h1>
           <p className="text-white/40 text-sm mt-1">Name teams · assign players · start scoring</p>
         </div>
 
         {/* Team name inputs */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-5">
           <div>
             <label className="text-green-400 text-xs uppercase tracking-wider mb-1 block">Team A</label>
             <input
@@ -188,17 +213,41 @@ export default function GamePage() {
           </div>
         </div>
 
+        {/* Walk-in add */}
+        <div className="mb-5">
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Add walk-in</p>
+          <div className="flex gap-2">
+            <input
+              value={walkInName}
+              onChange={e => setWalkInName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addWalkIn()}
+              placeholder="Name"
+              className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                         text-white placeholder:text-white/30 focus:outline-none
+                         focus:border-orange-500 text-sm"
+            />
+            <button
+              onClick={addWalkIn}
+              disabled={!walkInName.trim()}
+              className="px-4 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm
+                         active:scale-95 transition-transform disabled:opacity-30"
+            >
+              + Add
+            </button>
+          </div>
+        </div>
+
         {/* Player assignment */}
         {players.length > 0 && (
           <div className="mb-6">
             <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-              Assign players — tap to cycle: unassigned → {teamAName || 'Team A'} → {teamBName || 'Team B'}
+              Tap to assign → <span className="text-green-400">{teamAName || 'A'}</span> → <span className="text-orange-400">{teamBName || 'B'}</span> → unassigned
             </p>
 
-            {/* Team A players */}
+            {/* Team A */}
             {teamAPlayers.length > 0 && (
               <div className="mb-3">
-                <p className="text-green-400 text-xs font-semibold mb-1.5">
+                <p className="text-green-400 text-xs font-semibold mb-2">
                   {teamAName || 'Team A'} · {teamAPlayers.length}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -217,10 +266,10 @@ export default function GamePage() {
               </div>
             )}
 
-            {/* Team B players */}
+            {/* Team B */}
             {teamBPlayers.length > 0 && (
               <div className="mb-3">
-                <p className="text-orange-400 text-xs font-semibold mb-1.5">
+                <p className="text-orange-400 text-xs font-semibold mb-2">
                   {teamBName || 'Team B'} · {teamBPlayers.length}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -241,8 +290,8 @@ export default function GamePage() {
 
             {/* Unassigned */}
             {unassigned.length > 0 && (
-              <div>
-                <p className="text-white/30 text-xs font-semibold mb-1.5">
+              <div className="mb-3">
+                <p className="text-white/30 text-xs font-semibold mb-2">
                   Unassigned · {unassigned.length}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -262,6 +311,70 @@ export default function GamePage() {
             )}
           </div>
         )}
+
+        {/* Team summary */}
+        <div className="card p-3 mb-5 flex gap-4">
+          <div className="flex-1 text-center">
+            <div className="text-green-400 text-2xl font-black">{teamAPlayers.length}</div>
+            <div className="text-white/40 text-xs">{teamAName || 'Team A'}</div>
+          </div>
+          <div className="w-px bg-white/10" />
+          <div className="flex-1 text-center">
+            <div className="text-orange-400 text-2xl font-black">{teamBPlayers.length}</div>
+            <div className="text-white/40 text-xs">{teamBName || 'Team B'}</div>
+          </div>
+          <div className="w-px bg-white/10" />
+          <div className="flex-1 text-center">
+            <div className="text-white/30 text-2xl font-black">{unassigned.length}</div>
+            <div className="text-white/40 text-xs">Bench</div>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          {!showStartScore ? (
+            <button
+              onClick={() => setShowStartScore(true)}
+              className="text-white/30 text-sm underline"
+            >
+              + Joining mid-game? Set starting score
+            </button>
+          ) : (
+            <div>
+              <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Starting Score</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-green-400 text-xs mb-1 block">{teamAName || 'Team A'}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={startScoreA}
+                    onChange={e => setStartScoreA(Number(e.target.value))}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                               text-white text-center text-lg font-bold focus:outline-none
+                               focus:border-green-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-orange-400 text-xs mb-1 block">{teamBName || 'Team B'}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={startScoreB}
+                    onChange={e => setStartScoreB(Number(e.target.value))}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                               text-white text-center text-lg font-bold focus:outline-none
+                               focus:border-orange-400"
+                  />
+                </div>
+              </div>
+              {(startScoreA > 0 || startScoreB > 0) && (
+                <p className="text-white/30 text-xs mt-2 text-center">
+                  ✓ Will start at {startScoreA}–{startScoreB}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={setupGame}
