@@ -114,7 +114,7 @@ Write only the commentary. No title, no header, no explanation.`
       'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'openrouter/auto',
+      model: 'google/gemini-flash-1.5',
       max_tokens: 400,
       messages: [{ role: 'user', content: prompt }],
     }),

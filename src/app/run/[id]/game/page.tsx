@@ -39,6 +39,8 @@ export default function GamePage() {
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
   const [showStartScore, setShowStartScore] = useState(false)
+  const [floatingReactions, setFloatingReactions] = useState<{id: string; emoji: string; x: number}[]>([])
+  const [fanReaction, setFanReaction] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPlayers() {
@@ -55,6 +57,22 @@ export default function GamePage() {
     }
     fetchPlayers()
   }, [runId])
+
+  useEffect(() => {
+    if (!game?.id) return
+    const { getSupabase } = require('@/lib/supabase')
+    const supabase = getSupabase()
+    const ch = supabase
+      .channel(`game-reactions:${game.id}`)
+      .on('broadcast', { event: 'react' }, ({ payload }: any) => {
+        const id = Math.random().toString(36).slice(2)
+        const x = 10 + Math.random() * 80
+        setFloatingReactions(prev => [...prev, { id, emoji: payload.emoji, x }])
+        setTimeout(() => setFloatingReactions(prev => prev.filter(r => r.id !== id)), 2000)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [game?.id])
 
   useEffect(() => {
     if (!state.loading && !game) setNeedsSetup(true)
@@ -147,6 +165,17 @@ export default function GamePage() {
     setSettingUp(false)
   }
 
+  async function broadcastReaction(emoji: string) {
+    if (!game?.id) return
+    const { getSupabase } = require('@/lib/supabase')
+    const supabase = getSupabase()
+    await supabase.channel(`game-reactions:${game.id}`).send({
+      type: 'broadcast',
+      event: 'react',
+      payload: { emoji },
+    })
+  }
+
   async function handleTap(side: 'a' | 'b') {
     if (game?.status !== 'live') return
     if (pointSelector === side) {
@@ -160,11 +189,15 @@ export default function GamePage() {
 
   async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3) {
     const isWalkIn = selectedScorer?.startsWith('walkin_') ?? false
-    const participantId = selectedScorer && !isWalkIn ? selectedScorer : undefined
+    const isParticipant = selectedScorer && !isWalkIn && players.some(p => p.id === selectedScorer)
+    const isTypedName = selectedScorer && !isWalkIn && !isParticipant
+    const participantId = isParticipant ? selectedScorer : undefined
     const scorerName = isWalkIn
       ? players.find(p => p.id === selectedScorer)?.name ?? undefined
+      : isTypedName
+      ? selectedScorer
       : undefined
-    await actions.addScore(side, points, participantId, scorerName)
+    await actions.addScore(side, points, participantId ?? undefined, scorerName)
     setLastScored(side)
     setPointSelector(null)
     setSelectedScorer(null)
@@ -555,7 +588,7 @@ export default function GamePage() {
               {/* Points */}
               <p className="text-white/40 text-xs text-center mb-2 uppercase tracking-wider">
                 {selectedScorer
-                  ? `${players.find(p => p.id === selectedScorer)?.name} scored...`
+                  ? `${players.find(p => p.id === selectedScorer)?.name ?? selectedScorer} scored...`
                   : 'How many points?'}
               </p>
               <div className="flex gap-3">
@@ -717,7 +750,16 @@ export default function GamePage() {
                 )}
                 {isOrganizer && (
                   <button
-                    onClick={() => setNeedsSetup(true)}
+                    onClick={() => {
+                        // Carry existing assignments into next game setup
+                        // (teamAssignments keyed by participant ID — still valid)
+                        setNeedsSetup(true)
+                        setTeamAName('Team A')
+                        setTeamBName('Team B')
+                        setStartScoreA(0)
+                        setStartScoreB(0)
+                        setShowStartScore(false)
+                      }}
                     className="w-full py-3 rounded-2xl font-bold bg-orange-500 text-white text-sm"
                   >
                     Next game →

@@ -32,3 +32,8 @@ body {
 .card {
   @apply bg-white/5 rounded-2xl border border-white/10;
 }
+
+@keyframes floatUp {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-120px) scale(1.4); }
+}

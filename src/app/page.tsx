@@ -19,6 +19,9 @@ export default function Home() {
         <Link href="/history" className="text-white/30 text-sm underline underline-offset-2 block text-center pt-2">
           View your runs →
         </Link>
+        <Link href="/league/new" className="text-white/20 text-sm underline underline-offset-2 block text-center">
+          🏆 League
+        </Link>
         <Link href="/profile" className="text-white/20 text-sm underline underline-offset-2 block text-center">
           👤 Profile
         </Link>

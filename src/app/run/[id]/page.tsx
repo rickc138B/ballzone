@@ -23,6 +23,13 @@ type GameSummary = {
   duration_min: number | null
 }
 
+type GameComment = {
+  id: string
+  display_name: string | null
+  body: string
+  created_at: string
+}
+
 
 export default function RunPage() {
   const params = useParams()
@@ -42,6 +49,15 @@ export default function RunPage() {
   const [commentaries, setCommentaries] = useState<Array<GameCommentary & { sequence_number: number }>>([])
   const [games, setGames] = useState<GameSummary[]>([])
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
+  const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({})
+  const [myReactions, setMyReactions] = useState<Record<string, string>>({})
+  const [reactingGame, setReactingGame] = useState<string | null>(null)
+  const [comments, setComments] = useState<Record<string, GameComment[]>>({})
+  const [commentInput, setCommentInput] = useState<Record<string, string>>({})
+  const [commentName, setCommentName] = useState('')
+  const [submittingComment, setSubmittingComment] = useState<string | null>(null)
+  const [showNameInput, setShowNameInput] = useState(false)
+  const [knownNames, setKnownNames] = useState<string[]>([])
 
   const fetchCommentaries = useCallback(async (rid: string) => {
     // get completed games for this run
@@ -70,6 +86,36 @@ export default function RunPage() {
     if (!res.ok) return
     const data = await res.json()
     setGames(data)
+    if (data.length > 0) {
+      const results = await Promise.all(
+        data.map(async (g: GameSummary) => {
+          const r = await fetch(`/api/runs/${runId}/games/${g.id}/react`)
+          if (!r.ok) return [g.id, {}] as const
+          const d = await r.json()
+          return [g.id, d] as const
+        })
+      )
+      setReactions(Object.fromEntries(results))
+    }
+  }, [runId])
+
+  const fetchReactions = useCallback(async (gameList: GameSummary[]) => {
+    const results = await Promise.all(
+      gameList.map(async g => {
+        const res = await fetch(`/api/runs/${runId}/games/${g.id}/react`)
+        if (!res.ok) return [g.id, {}] as const
+        const data = await res.json()
+        return [g.id, data] as const
+      })
+    )
+    setReactions(Object.fromEntries(results))
+  }, [runId])
+
+  const fetchComments = useCallback(async (gameId: string) => {
+    const res = await fetch(`/api/runs/${runId}/games/${gameId}/comments`)
+    if (!res.ok) return
+    const data = await res.json()
+    setComments(prev => ({ ...prev, [gameId]: data }))
   }, [runId])
 
   const fetchRun = useCallback(async () => {
@@ -90,6 +136,14 @@ export default function RunPage() {
     fetchRun()
     fetchCommentaries(runId)
     fetchGames()
+    const storedName = localStorage.getItem('ballzone:commentName')
+    if (storedName) setCommentName(storedName)
+    const storedNames = localStorage.getItem('ballzone:knownNames')
+    if (storedNames) setKnownNames(JSON.parse(storedNames))
+    ;(async () => {
+      const stored = localStorage.getItem(`reactions:${runId}`)
+      if (stored) setMyReactions(JSON.parse(stored))
+    })
     setIsOrganizer(isOrganizerOfRun(runId))
     setName(getParticipantName())
 
@@ -106,7 +160,7 @@ export default function RunPage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [runId, fetchRun, fetchCommentaries, fetchGames])
+  }, [runId, fetchRun, fetchCommentaries, fetchGames, fetchReactions, fetchComments])
 
   async function respond(status: AttendanceStatus) {
     if (responding) return
@@ -218,6 +272,66 @@ export default function RunPage() {
     navigator.clipboard.writeText(lines.join('\n'))
     setCopiedReminder(true)
     setTimeout(() => setCopiedReminder(false), 2000)
+  }
+
+  async function submitComment(gameId: string) {
+    const body = commentInput[gameId]?.trim()
+    if (!body || submittingComment) return
+    setSubmittingComment(gameId)
+    const fingerprint = await getFingerprint()
+    const trimmedName = commentName.trim()
+    const res = await fetch(`/api/runs/${runId}/games/${gameId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fingerprint, display_name: trimmedName || null, body }),
+    })
+    if (res.ok) {
+      const newComment = await res.json()
+      setComments(prev => ({ ...prev, [gameId]: [...(prev[gameId] ?? []), newComment] }))
+      setCommentInput(prev => ({ ...prev, [gameId]: '' }))
+      if (trimmedName) {
+        localStorage.setItem('ballzone:commentName', trimmedName)
+        setKnownNames(prev => {
+          const updated = [trimmedName, ...prev.filter(n => n !== trimmedName)].slice(0, 5)
+          localStorage.setItem('ballzone:knownNames', JSON.stringify(updated))
+          return updated
+        })
+        setShowNameInput(false)
+      }
+    }
+    setSubmittingComment(null)
+  }
+
+  async function reactToGame(gameId: string, emoji: string) {
+    if (reactingGame) return
+    setReactingGame(gameId)
+    const fingerprint = await getFingerprint()
+
+    // Optimistic update
+    const prev = myReactions[gameId]
+    const newMyReactions = { ...myReactions }
+    const newReactions = { ...reactions }
+    const gameCounts = { ...(newReactions[gameId] ?? { '🔥': 0, '💀': 0, '😤': 0, '🏀': 0 }) }
+
+    if (prev === emoji) {
+      delete newMyReactions[gameId]
+      gameCounts[emoji] = Math.max(0, (gameCounts[emoji] ?? 0) - 1)
+    } else {
+      if (prev) gameCounts[prev] = Math.max(0, (gameCounts[prev] ?? 0) - 1)
+      newMyReactions[gameId] = emoji
+      gameCounts[emoji] = (gameCounts[emoji] ?? 0) + 1
+    }
+    newReactions[gameId] = gameCounts
+    setMyReactions(newMyReactions)
+    setReactions(newReactions)
+    localStorage.setItem(`reactions:${runId}`, JSON.stringify(newMyReactions))
+
+    await fetch(`/api/runs/${runId}/games/${gameId}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fingerprint, emoji }),
+    })
+    setReactingGame(null)
   }
 
   if (loading) {
@@ -434,7 +548,11 @@ export default function RunPage() {
               return (
                 <div key={g.id} className="card border-white/10 overflow-hidden">
                   <button
-                    onClick={() => setExpandedGame(isExpanded ? null : g.id)}
+                    onClick={() => {
+                        const next = isExpanded ? null : g.id
+                        setExpandedGame(next)
+                        if (next && !comments[next]) fetchComments(next)
+                      }}
                     className="w-full p-4 text-left active:bg-white/5 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-3">
@@ -467,16 +585,125 @@ export default function RunPage() {
                       ))}
                     </div>
                   </button>
+                  {/* Reaction strip */}
+                  <div className="px-4 pb-3 flex gap-2">
+                    {(['🔥', '💀', '😤', '🏀'] as const).map(emoji => {
+                      const count = reactions[g.id]?.[emoji] ?? 0
+                      const isMine = myReactions[g.id] === emoji
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => reactToGame(g.id, emoji)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm transition-all
+                            ${isMine
+                              ? 'bg-orange-500/30 border border-orange-500/50'
+                              : 'bg-white/5 border border-white/10 active:bg-white/10'
+                            }`}
+                        >
+                          <span>{emoji}</span>
+                          {count > 0 && (
+                            <span className={`text-xs font-semibold ${isMine ? 'text-orange-300' : 'text-white/40'}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+
                   {isExpanded && (
                     <div className="px-4 pb-4 pt-0 border-t border-white/10">
-                      {commentary ? (
+                      {commentary && (
                         <>
                           <p className="text-white/40 text-xs uppercase tracking-wider mt-3 mb-2">🎙 Commentary</p>
-                          <p className="text-white/70 text-sm leading-relaxed">{commentary.body}</p>
+                          <p className="text-white/70 text-sm leading-relaxed mb-4">{commentary.body}</p>
                         </>
-                      ) : (
-                        <p className="text-white/30 text-xs mt-3 italic">No commentary for this game.</p>
                       )}
+                      {/* Comments */}
+                      <div className="mt-3">
+                        <p className="text-white/40 text-xs uppercase tracking-wider mb-3">💬 Comments</p>
+                        {(comments[g.id] ?? []).length > 0 && (
+                          <div className="space-y-2 mb-3">
+                            {(comments[g.id] ?? []).map(cm => (
+                              <div key={cm.id} className="flex gap-2">
+                                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                                  {cm.display_name?.[0]?.toUpperCase() ?? '?'}
+                                </div>
+                                <div>
+                                  <span className="text-white/50 text-xs font-semibold">
+                                    {cm.display_name ?? 'Anonymous'}
+                                  </span>
+                                  <p className="text-white/80 text-sm">{cm.body}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {(comments[g.id] ?? []).length === 0 && (
+                          <p className="text-white/20 text-xs italic mb-3">No comments yet. Be first.</p>
+                        )}
+                        {/* Comment input */}
+                        <div className="space-y-2">
+                          {/* Name selector */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {knownNames.map(n => (
+                              <button
+                                key={n}
+                                onClick={() => { setCommentName(n); setShowNameInput(false) }}
+                                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
+                                  ${commentName === n
+                                    ? 'bg-orange-500/30 border-orange-500/50 text-orange-300'
+                                    : 'bg-white/5 border-white/10 text-white/40 active:bg-white/10'
+                                  }`}
+                              >
+                                {n}
+                              </button>
+                            ))}
+                            {(knownNames.length === 0 || showNameInput) ? (
+                              <input
+                                type="text"
+                                value={commentName}
+                                onChange={e => setCommentName(e.target.value)}
+                                placeholder="Your name (optional)"
+                                autoFocus={showNameInput}
+                                className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5
+                                           text-white text-xs placeholder:text-white/20 focus:outline-none
+                                           focus:border-orange-500/40"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => { setShowNameInput(true); setCommentName('') }}
+                                className="w-6 h-6 rounded-full bg-white/10 border border-white/10 text-white/40
+                                           text-xs flex items-center justify-center active:bg-white/20"
+                              >
+                                +
+                              </button>
+                            )}
+                          </div>
+                          {/* Comment box + send */}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={commentInput[g.id] ?? ''}
+                              onChange={e => setCommentInput(prev => ({ ...prev, [g.id]: e.target.value }))}
+                              onKeyDown={e => e.key === 'Enter' && submitComment(g.id)}
+                              placeholder="Add a comment..."
+                              maxLength={280}
+                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2
+                                         text-white text-sm placeholder:text-white/20 focus:outline-none
+                                         focus:border-orange-500/50"
+                            />
+                            <button
+                              onClick={() => submitComment(g.id)}
+                              disabled={!commentInput[g.id]?.trim() || submittingComment === g.id}
+                              className="px-3 py-2 rounded-xl bg-orange-500/80 text-white text-sm font-bold
+                                         active:scale-95 transition-transform disabled:opacity-30"
+                            >
+                              →
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
