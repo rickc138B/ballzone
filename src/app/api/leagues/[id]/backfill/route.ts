@@ -58,7 +58,7 @@ export async function POST(
     if (gameError || !leagueGame)
       return NextResponse.json({ error: gameError?.message ?? 'Failed to create game' }, { status: 500 })
 
-    async function insertTeamStats(teamData: any, teamId: string) {
+    async function insertTeamStats(teamData: any, teamId: string, gameId: string) {
       for (const p of teamData.players) {
         let { data: player } = await supabase
           .from('league_players').select('id')
@@ -70,7 +70,7 @@ export async function POST(
         }
         if (!player) continue
         await supabase.from('player_game_stats').insert({
-          league_game_id: leagueGame.id,
+          league_game_id: gameId,
           league_player_id: player.id,
           league_team_id: teamId,
           pts: p.pts ?? 0, reb: p.reb ?? 0, ast: p.ast ?? 0,
@@ -82,8 +82,8 @@ export async function POST(
       }
     }
 
-    await insertTeamStats(home_team, homeTeam.id)
-    await insertTeamStats(away_team, awayTeam.id)
+    await insertTeamStats(home_team, homeTeam.id, leagueGame.id)
+    await insertTeamStats(away_team, awayTeam.id, leagueGame.id)
 
     return NextResponse.json({ game_id: leagueGame.id, sequence_number: nextSeq, home_score: homeScore, away_score: awayScore })
   } catch (err) {
