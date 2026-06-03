@@ -15,6 +15,15 @@ import {
 import { formatRunDate, formatRunTime } from '@/lib/utils'
 import type { RunWithAttendance, AttendanceStatus, GameCommentary } from '@/lib/types'
 
+type GameSummary = {
+  id: string
+  sequence_number: number
+  teams: { id: string; name: string; score: number }[]
+  winner_team_id: string | null
+  duration_min: number | null
+}
+
+
 export default function RunPage() {
   const params = useParams()
   const runId = params.id as string
@@ -31,6 +40,8 @@ export default function RunPage() {
   const [copiedList, setCopiedList] = useState(false)
   const [copiedReminder, setCopiedReminder] = useState(false)
   const [commentaries, setCommentaries] = useState<Array<GameCommentary & { sequence_number: number }>>([])
+  const [games, setGames] = useState<GameSummary[]>([])
+  const [expandedGame, setExpandedGame] = useState<string | null>(null)
 
   const fetchCommentaries = useCallback(async (rid: string) => {
     // get completed games for this run
@@ -54,6 +65,13 @@ export default function RunPage() {
     setCommentaries(results.filter(Boolean))
   }, [])
 
+  const fetchGames = useCallback(async () => {
+    const res = await fetch(`/api/runs/${runId}/games`)
+    if (!res.ok) return
+    const data = await res.json()
+    setGames(data)
+  }, [runId])
+
   const fetchRun = useCallback(async () => {
     const res = await fetch(`/api/runs/${runId}`)
     if (!res.ok) { setNotFound(true); setLoading(false); return }
@@ -71,6 +89,7 @@ export default function RunPage() {
   useEffect(() => {
     fetchRun()
     fetchCommentaries(runId)
+    fetchGames()
     setIsOrganizer(isOrganizerOfRun(runId))
     setName(getParticipantName())
 
@@ -87,7 +106,7 @@ export default function RunPage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [runId, fetchRun, fetchCommentaries])
+  }, [runId, fetchRun, fetchCommentaries, fetchGames])
 
   async function respond(status: AttendanceStatus) {
     if (responding) return
@@ -404,17 +423,65 @@ export default function RunPage() {
           </div>
         </div>
       )}
-      {/* Game commentaries — visible to everyone on completed runs */}
-      {commentaries.length > 0 && (
+      {/* Game History — visible to everyone */}
+      {games.length > 0 && (
         <div className="mb-5">
-          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">🎙 Game Commentary</p>
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">🏀 Game History</p>
           <div className="space-y-3">
-            {commentaries.map(c => (
-              <div key={c.id} className="card p-4 border-white/10">
-                <p className="text-white/30 text-xs mb-2">Game {c.sequence_number}</p>
-                <p className="text-white/80 text-sm leading-relaxed">{c.body}</p>
-              </div>
-            ))}
+            {games.map(g => {
+              const commentary = commentaries.find(cm => cm.sequence_number === g.sequence_number)
+              const isExpanded = expandedGame === g.id
+              return (
+                <div key={g.id} className="card border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => setExpandedGame(isExpanded ? null : g.id)}
+                    className="w-full p-4 text-left active:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-white/30 text-xs uppercase tracking-wider">
+                        Game {g.sequence_number}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {g.duration_min !== null && g.duration_min > 0 && (
+                          <span className="text-white/30 text-xs">⏱ {g.duration_min}m</span>
+                        )}
+                        {commentary && <span className="text-white/30 text-xs">🎙</span>}
+                        <span className="text-white/30 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {g.teams.map(t => (
+                        <div key={t.id} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {t.id === g.winner_team_id && (
+                              <span className="text-yellow-400 text-xs">👑</span>
+                            )}
+                            <span className={t.id === g.winner_team_id ? 'text-sm font-semibold text-white' : 'text-sm font-semibold text-white/50'}>
+                              {t.name}
+                            </span>
+                          </div>
+                          <span className={t.id === g.winner_team_id ? 'text-xl font-black tabular-nums text-orange-400' : 'text-xl font-black tabular-nums text-white/30'}>
+                            {t.score}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="px-4 pb-4 pt-0 border-t border-white/10">
+                      {commentary ? (
+                        <>
+                          <p className="text-white/40 text-xs uppercase tracking-wider mt-3 mb-2">🎙 Commentary</p>
+                          <p className="text-white/70 text-sm leading-relaxed">{commentary.body}</p>
+                        </>
+                      ) : (
+                        <p className="text-white/30 text-xs mt-3 italic">No commentary for this game.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
