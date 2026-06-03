@@ -11,7 +11,7 @@ export async function GET(
 
     const { data: player, error } = await supabase
       .from('league_players')
-      .select('id, display_name, league_team_id, league_teams(name, league_id)')
+      .select('id, display_name, league_team_id, claimed_by, league_teams(name, league_id)')
       .eq('id', playerId)
       .single()
 
@@ -32,7 +32,7 @@ export async function GET(
 
     if (!stats || stats.length === 0) {
       return NextResponse.json({
-        player: { id: player.id, display_name: player.display_name, team_name: (player.league_teams as any)?.name },
+        player: { id: player.id, display_name: player.display_name, team_name: (player.league_teams as any)?.name, claimed_by: player.claimed_by ?? null },
         averages: null,
         career_high: null,
         game_log: [],
@@ -84,7 +84,7 @@ export async function GET(
     const careerHighGame = game_log[stats.indexOf(careerHigh)]
 
     return NextResponse.json({
-      player: { id: player.id, display_name: player.display_name, team_name: (player.league_teams as any)?.name },
+      player: { id: player.id, display_name: player.display_name, team_name: (player.league_teams as any)?.name, claimed_by: player.claimed_by ?? null },
       averages,
       career_high: { pts: careerHigh.pts, reb: careerHigh.reb, ast: careerHigh.ast, game: careerHighGame },
       game_log,
