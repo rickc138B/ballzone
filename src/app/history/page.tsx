@@ -56,12 +56,17 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-black text-white">Your Runs</h1>
           <p className="text-white/40 text-sm">Runs you&apos;ve organised</p>
         </div>
-        <Link
-          href="/new"
-          className="px-4 py-2 rounded-xl bg-orange-500 text-white font-bold text-sm"
-        >
-          + New Run
-        </Link>
+        <div className="flex gap-2 items-center">
+          <Link href="/profile" className="text-white/40 text-sm px-3 py-2 rounded-xl bg-white/10">
+            👤
+          </Link>
+          <Link
+            href="/new"
+            className="px-4 py-2 rounded-xl bg-orange-500 text-white font-bold text-sm"
+          >
+            + New Run
+          </Link>
+        </div>
       </div>
 
       {runs.length === 0 ? (

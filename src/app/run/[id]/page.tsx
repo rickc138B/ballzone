@@ -13,7 +13,7 @@ import {
   getShareToken,
 } from '@/lib/session-token'
 import { formatRunDate, formatRunTime } from '@/lib/utils'
-import type { RunWithAttendance, AttendanceStatus } from '@/lib/types'
+import type { RunWithAttendance, AttendanceStatus, GameCommentary } from '@/lib/types'
 
 export default function RunPage() {
   const params = useParams()
@@ -30,6 +30,29 @@ export default function RunPage() {
   const [copied, setCopied] = useState(false)
   const [copiedList, setCopiedList] = useState(false)
   const [copiedReminder, setCopiedReminder] = useState(false)
+  const [commentaries, setCommentaries] = useState<Array<GameCommentary & { sequence_number: number }>>([])
+
+  const fetchCommentaries = useCallback(async (rid: string) => {
+    // get completed games for this run
+    const supabase = (await import('@/lib/supabase')).getSupabase()
+    const { data: games } = await supabase
+      .from('games')
+      .select('id, sequence_number, session_id')
+      .eq('session_id', rid)
+      .eq('status', 'complete')
+      .order('sequence_number', { ascending: true })
+    if (!games || games.length === 0) return
+    const results = await Promise.all(
+      games.map(async g => {
+        const res = await fetch(`/api/runs/${rid}/games/${g.id}/commentary`)
+        if (!res.ok) return null
+        const d = await res.json()
+        if (!d.body) return null
+        return { ...d, sequence_number: g.sequence_number }
+      })
+    )
+    setCommentaries(results.filter(Boolean))
+  }, [])
 
   const fetchRun = useCallback(async () => {
     const res = await fetch(`/api/runs/${runId}`)
@@ -47,6 +70,7 @@ export default function RunPage() {
 
   useEffect(() => {
     fetchRun()
+    fetchCommentaries(runId)
     setIsOrganizer(isOrganizerOfRun(runId))
     setName(getParticipantName())
 
@@ -63,7 +87,7 @@ export default function RunPage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [runId, fetchRun])
+  }, [runId, fetchRun, fetchCommentaries])
 
   async function respond(status: AttendanceStatus) {
     if (responding) return
@@ -360,6 +384,9 @@ export default function RunPage() {
             <a href={`/run/${runId}/game`} className="btn-secondary text-sm py-2.5 block text-center">
               🏀 Keep Score
             </a>
+            <a href={`/run/${runId}/backfill`} className="btn-secondary text-sm py-2.5 block text-center">
+              📋 Add Historical Game
+            </a>
             {run.status === 'open' && (
               <a href={`/run/${runId}/edit`} className="btn-secondary text-sm py-2.5 block text-center">
                 ✏️ Edit Run
@@ -374,6 +401,20 @@ export default function RunPage() {
                 🏀 Start Game
               </button>
             )}
+          </div>
+        </div>
+      )}
+      {/* Game commentaries — visible to everyone on completed runs */}
+      {commentaries.length > 0 && (
+        <div className="mb-5">
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">🎙 Game Commentary</p>
+          <div className="space-y-3">
+            {commentaries.map(c => (
+              <div key={c.id} className="card p-4 border-white/10">
+                <p className="text-white/30 text-xs mb-2">Game {c.sequence_number}</p>
+                <p className="text-white/80 text-sm leading-relaxed">{c.body}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
