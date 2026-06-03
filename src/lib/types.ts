@@ -128,3 +128,36 @@ export interface RespondResponse {
   participant_id: string
   status: AttendanceStatus
 }
+
+export interface Profile {
+  id: string
+  phone: string | null
+  display_name: string | null
+  avatar_url: string | null
+  created_at: string
+}
+
+export interface GameCommentary {
+  id: string
+  game_id: string
+  body: string
+  generated_at: string
+  model: string
+}
+
+export interface ProfileStats {
+  runs_organised: number
+  games_played: number
+  points_scored: number
+}
+
+export interface OtpRequestResponse {
+  ok: boolean
+}
+
+export interface OtpVerifyResponse {
+  profile_id: string
+  profile_token: string
+  display_name: string | null
+  is_new: boolean
+}

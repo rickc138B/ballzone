@@ -361,6 +361,11 @@ export default function RunPage() {
               🏀 Keep Score
             </a>
             {run.status === 'open' && (
+              <a href={`/run/${runId}/edit`} className="btn-secondary text-sm py-2.5 block text-center">
+                ✏️ Edit Run
+              </a>
+            )}
+            {run.status === 'open' && (
               <button
                 onClick={startGame}
                 className="w-full py-3 rounded-2xl font-bold text-base bg-orange-500 

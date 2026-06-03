@@ -1,0 +1,323 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  getProfileToken,
+  saveProfileToken,
+  saveProfileId,
+  getProfileId,
+  clearProfile,
+  isClaimed,
+  getParticipantId,
+  getOrCreateSessionToken,
+  hashToken,
+} from '@/lib/session-token'
+import type { Profile, ProfileStats } from '@/lib/types'
+
+type Step = 'loading' | 'unclaimed' | 'enter_phone' | 'enter_otp' | 'claimed'
+
+export default function ProfilePage() {
+  const router = useRouter()
+  const [step, setStep] = useState<Step>('loading')
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [stats, setStats] = useState<ProfileStats | null>(null)
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+
+  useEffect(() => {
+    if (isClaimed()) {
+      fetchProfile()
+    } else {
+      setStep('unclaimed')
+    }
+  }, [])
+
+  async function fetchProfile() {
+    setStep('loading')
+    const res = await fetch('/api/profile', {
+      headers: { 'x-profile-token': getProfileToken() },
+    })
+    if (!res.ok) {
+      clearProfile()
+      setStep('unclaimed')
+      return
+    }
+    const data = await res.json()
+    setProfile(data)
+    setStats(data.stats)
+    setDisplayName(data.display_name ?? '')
+    setStep('claimed')
+  }
+
+  async function requestOtp() {
+    if (!phone.trim()) { setError('Enter your phone number'); return }
+    setBusy(true)
+    setError('')
+    const res = await fetch('/api/auth/otp/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone.trim() }),
+    })
+    setBusy(false)
+    if (!res.ok) {
+      const d = await res.json()
+      setError(d.error ?? 'Failed to send code')
+      return
+    }
+    setStep('enter_otp')
+  }
+
+  async function verifyOtp() {
+    if (!otp.trim()) { setError('Enter the code'); return }
+    setBusy(true)
+    setError('')
+
+    const participant_id = getParticipantId() || undefined
+    const sessionToken = getOrCreateSessionToken()
+    const organizer_token_hash = sessionToken ? await hashToken(sessionToken) : undefined
+
+    const res = await fetch('/api/auth/otp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: phone.trim(),
+        code: otp.trim(),
+        participant_id,
+        organizer_token_hash,
+      }),
+    })
+
+    const data = await res.json()
+    setBusy(false)
+
+    if (!res.ok) {
+      setError(data.error ?? 'Invalid code')
+      return
+    }
+
+    saveProfileToken(data.profile_token)
+    saveProfileId(data.profile_id)
+    await fetchProfile()
+  }
+
+  async function saveName() {
+    if (!displayName.trim()) return
+    setBusy(true)
+    const res = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-profile-token': getProfileToken(),
+      },
+      body: JSON.stringify({ display_name: displayName.trim() }),
+    })
+    setBusy(false)
+    if (res.ok) {
+      const data = await res.json()
+      setProfile(data)
+      setEditingName(false)
+    }
+  }
+
+  function signOut() {
+    clearProfile()
+    setStep('unclaimed')
+    setProfile(null)
+    setStats(null)
+  }
+
+  if (step === 'loading') {
+    return (
+      <main className="min-h-dvh flex items-center justify-center">
+        <div className="text-white/40">Loading...</div>
+      </main>
+    )
+  }
+
+  if (step === 'unclaimed') {
+    return (
+      <main className="min-h-dvh flex flex-col p-6 max-w-lg mx-auto">
+        <div className="pt-4 mb-8">
+          <button onClick={() => router.back()} className="text-white/40 text-sm mb-4 block">← Back</button>
+          <h1 className="text-2xl font-black text-white">Claim your profile</h1>
+          <p className="text-white/50 text-sm mt-1">Link your runs and stats across devices</p>
+        </div>
+        <div className="card p-5 mb-4">
+          <div className="space-y-3 text-white/60 text-sm">
+            <p>✅ Access your runs from any device</p>
+            <p>📊 Track your points and games played</p>
+            <p>🏀 Get credit for scores you made</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setStep('enter_phone')}
+          className="w-full py-4 rounded-2xl font-bold text-lg bg-orange-500 text-white active:scale-95 transition-transform"
+        >
+          Claim with Phone Number
+        </button>
+      </main>
+    )
+  }
+
+  if (step === 'enter_phone') {
+    return (
+      <main className="min-h-dvh flex flex-col p-6 max-w-lg mx-auto">
+        <div className="pt-4 mb-8">
+          <button onClick={() => setStep('unclaimed')} className="text-white/40 text-sm mb-4 block">← Back</button>
+          <h1 className="text-2xl font-black text-white">Enter your number</h1>
+          <p className="text-white/50 text-sm mt-1">We'll send a one-time code</p>
+        </div>
+        <div className="space-y-4">
+          <input
+            type="tel"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && requestOtp()}
+            placeholder="+234 800 000 0000"
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3
+                       text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500 text-lg"
+            autoFocus
+          />
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button
+            onClick={requestOtp}
+            disabled={busy}
+            className="w-full py-4 rounded-2xl font-bold text-lg bg-orange-500 text-white
+                       active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {busy ? 'Sending...' : 'Send Code →'}
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  if (step === 'enter_otp') {
+    return (
+      <main className="min-h-dvh flex flex-col p-6 max-w-lg mx-auto">
+        <div className="pt-4 mb-8">
+          <button onClick={() => setStep('enter_phone')} className="text-white/40 text-sm mb-4 block">← Back</button>
+          <h1 className="text-2xl font-black text-white">Enter the code</h1>
+          <p className="text-white/50 text-sm mt-1">Sent to {phone}</p>
+        </div>
+        <div className="space-y-4">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={otp}
+            onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onKeyDown={e => e.key === 'Enter' && verifyOtp()}
+            placeholder="000000"
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3
+                       text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500
+                       text-3xl font-black text-center tracking-[0.5em]"
+            autoFocus
+          />
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          <button
+            onClick={verifyOtp}
+            disabled={busy || otp.length < 6}
+            className="w-full py-4 rounded-2xl font-bold text-lg bg-orange-500 text-white
+                       active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {busy ? 'Verifying...' : 'Verify →'}
+          </button>
+          <button
+            onClick={() => { setStep('enter_phone'); setOtp(''); setError('') }}
+            className="w-full py-2 text-white/30 text-sm"
+          >
+            Resend code
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  // claimed
+  const initials = (profile?.display_name ?? phone)
+    .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  return (
+    <main className="min-h-dvh flex flex-col p-6 max-w-lg mx-auto">
+      <div className="pt-4 mb-6">
+        <button onClick={() => router.back()} className="text-white/40 text-sm mb-4 block">← Back</button>
+        <h1 className="text-2xl font-black text-white">Profile</h1>
+      </div>
+
+      {/* Avatar + name */}
+      <div className="card p-5 mb-4 flex items-center gap-4">
+        <div className="w-14 h-14 rounded-full bg-orange-500/20 border border-orange-500/30
+                        flex items-center justify-center text-orange-400 text-xl font-black flex-shrink-0">
+          {initials || '?'}
+        </div>
+        <div className="flex-1 min-w-0">
+          {editingName ? (
+            <div className="flex gap-2">
+              <input
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveName()}
+                className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2
+                           text-white focus:outline-none focus:border-orange-500 text-sm"
+                autoFocus
+              />
+              <button
+                onClick={saveName}
+                disabled={busy}
+                className="px-3 py-2 rounded-xl bg-orange-500 text-white text-sm font-semibold disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-white font-bold text-lg truncate">
+                {profile?.display_name ?? 'No name set'}
+              </p>
+              <button
+                onClick={() => setEditingName(true)}
+                className="text-white/30 text-xs"
+              >
+                ✏️
+              </button>
+            </div>
+          )}
+          <p className="text-white/40 text-sm">{profile?.phone}</p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      {stats && (
+        <div className="card p-4 mb-4">
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Your Stats</p>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div className="text-2xl font-black text-orange-400">{stats.runs_organised}</div>
+              <div className="text-white/40 text-xs mt-0.5">Runs Organised</div>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-green-400">{stats.games_played}</div>
+              <div className="text-white/40 text-xs mt-0.5">Games Played</div>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-white">{stats.points_scored}</div>
+              <div className="text-white/40 text-xs mt-0.5">Points Scored</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={signOut}
+        className="w-full py-3 rounded-2xl font-semibold text-white/30 border border-white/10 text-sm mt-2"
+      >
+        Sign out
+      </button>
+    </main>
+  )
+}

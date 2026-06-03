@@ -496,12 +496,12 @@ export default function GamePage() {
           )
           return (
             <div className="px-4 py-3 bg-white/5 border-t border-white/10">
-              {/* Player chips */}
-              {sidePlayers.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-white/30 text-xs text-center mb-2 uppercase tracking-wider">
-                    Who scored? (optional)
-                  </p>
+              {/* Player chips or free-text */}
+              <div className="mb-3">
+                <p className="text-white/30 text-xs text-center mb-2 uppercase tracking-wider">
+                  Who scored? (optional)
+                </p>
+                {sidePlayers.length > 0 ? (
                   <div className="flex flex-wrap gap-2 justify-center">
                     {sidePlayers.map(p => (
                       <button
@@ -520,8 +520,18 @@ export default function GamePage() {
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <input
+                    type="text"
+                    value={selectedScorer ?? ''}
+                    onChange={e => setSelectedScorer(e.target.value || null)}
+                    placeholder="Type a name..."
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                               text-white placeholder:text-white/30 focus:outline-none text-sm
+                               focus:border-orange-400 text-center"
+                  />
+                )}
+              </div>
               {/* Points */}
               <p className="text-white/40 text-xs text-center mb-2 uppercase tracking-wider">
                 {selectedScorer

@@ -87,3 +87,34 @@ export function isOrganizerOfRun(runId: string): boolean {
 export function getShareToken(runId: string): string | null {
   return getOrganizerRuns().find(r => r.run_id === runId)?.share_token ?? null
 }
+
+// Profile session token (set after OTP verify)
+export function getProfileToken(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('bz_profile_token') ?? ''
+}
+
+export function saveProfileToken(token: string) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('bz_profile_token', token)
+}
+
+export function getProfileId(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('bz_profile_id') ?? ''
+}
+
+export function saveProfileId(id: string) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('bz_profile_id', id)
+}
+
+export function clearProfile() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('bz_profile_token')
+  localStorage.removeItem('bz_profile_id')
+}
+
+export function isClaimed(): boolean {
+  return !!getProfileToken()
+}
