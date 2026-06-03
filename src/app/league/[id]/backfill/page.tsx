@@ -7,6 +7,7 @@ export default function LeagueBackfillPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
   const [json, setJson] = useState('')
+  const [adminPin, setAdminPin] = useState('')
   const [parsed, setParsed] = useState<any>(null)
   const [parseError, setParseError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -31,7 +32,7 @@ export default function LeagueBackfillPage() {
     const res = await fetch(`/api/leagues/${id}/backfill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parsed),
+      body: JSON.stringify({ ...parsed, admin_pin: adminPin }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error); setSaving(false); return }
@@ -51,6 +52,17 @@ export default function LeagueBackfillPage() {
       </div>
 
       <div className="space-y-4">
+        <div>
+          <label className="text-white/50 text-xs uppercase tracking-wider mb-1.5 block">Admin PIN</label>
+          <input
+            type="password"
+            value={adminPin}
+            onChange={e => setAdminPin(e.target.value)}
+            placeholder="League admin PIN"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3
+                       text-white placeholder:text-white/20 focus:outline-none focus:border-orange-500/50"
+          />
+        </div>
         <textarea
           value={json}
           onChange={e => { setJson(e.target.value); setParsed(null); setParseError('') }}

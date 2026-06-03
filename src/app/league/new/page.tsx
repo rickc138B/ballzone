@@ -9,6 +9,7 @@ export default function NewLeaguePage() {
   const [season, setSeason] = useState('')
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
+  const [adminPin, setAdminPin] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -18,7 +19,7 @@ export default function NewLeaguePage() {
     const res = await fetch('/api/leagues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, season, location_name: location, description }),
+      body: JSON.stringify({ title, season, location_name: location, description, admin_pin: adminPin }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error); setSaving(false); return }
@@ -65,6 +66,18 @@ export default function NewLeaguePage() {
           />
         </div>
         <div>
+          <label className="text-white/50 text-xs uppercase tracking-wider mb-1.5 block">Admin PIN *</label>
+          <input
+            type="password"
+            value={adminPin}
+            onChange={e => setAdminPin(e.target.value)}
+            placeholder="Min 4 characters"
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3
+                       text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500"
+          />
+          <p className="text-white/20 text-xs mt-1">Keep this safe — needed to add games and access admin</p>
+        </div>
+        <div>
           <label className="text-white/50 text-xs uppercase tracking-wider mb-1.5 block">Description</label>
           <textarea
             value={description}
@@ -81,7 +94,7 @@ export default function NewLeaguePage() {
 
         <button
           onClick={create}
-          disabled={!title.trim() || saving}
+          disabled={!title.trim() || !adminPin.trim() || adminPin.length < 4 || saving}
           className="w-full py-4 rounded-2xl font-bold text-lg bg-orange-500 text-white
                      active:scale-95 transition-transform disabled:opacity-50 mt-2"
         >
