@@ -126,7 +126,7 @@ export default function LeaguePage() {
 
       {/* Games */}
       {tab === 'games' && (
-        <div className="space-y-3 mb-5">
+        <div className="space-y-4 mb-5">
           {games.length === 0 && (
             <p className="text-white/30 text-sm text-center py-8">No games yet</p>
           )}
@@ -134,7 +134,7 @@ export default function LeaguePage() {
             const homeWon = (g.home_score ?? 0) > (g.away_score ?? 0)
             return (
               <Link key={g.id} href={`/league/${id}/game/${g.id}`}>
-                <div className="card p-4 border-white/10 active:bg-white/5 transition-colors">
+                <div className="card p-5 border-white/10 active:bg-white/5 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-white/30 text-xs">
                       {g.round_label ?? `Game ${g.sequence_number}`}
