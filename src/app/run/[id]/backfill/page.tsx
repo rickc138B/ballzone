@@ -247,20 +247,22 @@ export default function BackfillPage() {
               const set = side === 'a' ? setScoreA : setScoreB
               const name = side === 'a' ? (teamAName || 'Team A') : (teamBName || 'Team B')
               const color = side === 'a' ? 'text-green-400' : 'text-orange-400'
+              const border = side === 'a' ? 'focus:border-green-400' : 'focus:border-orange-400'
               return (
                 <div key={side} className="text-center">
                   <p className={`${color} text-xs uppercase tracking-wider mb-2`}>{name}</p>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => set(v => Math.max(0, v - 1))}
-                      className="w-10 h-10 rounded-full bg-white/10 text-white font-bold text-lg"
-                    >−</button>
-                    <span className={`text-5xl font-black ${color}`}>{val}</span>
-                    <button
-                      onClick={() => set(v => v + 1)}
-                      className="w-10 h-10 rounded-full bg-white/10 text-white font-bold text-lg"
-                    >+</button>
-                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    value={val === 0 ? '' : val}
+                    onChange={e => set(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="0"
+                    className={`w-full bg-white/10 border border-white/20 rounded-2xl px-3 py-4
+                               text-center text-5xl font-black ${color} placeholder:text-white/20
+                               focus:outline-none ${border} [appearance:textfield]
+                               [&::-webkit-outer-spin-button]:appearance-none
+                               [&::-webkit-inner-spin-button]:appearance-none`}
+                  />
                 </div>
               )
             })}
@@ -310,7 +312,7 @@ export default function BackfillPage() {
           {/* Add event row */}
           <div className="flex gap-2">
             <button
-              onClick={() => setNewEvent(e => ({ ...e, team: e.team === 'a' ? 'b' : 'a' }))}
+              onClick={() => setNewEvent(e => ({ ...e, team: e.team === 'a' ? 'b' : 'a', scorer: '' }))}
               className={cn(
                 'px-3 py-2.5 rounded-xl text-xs font-bold border shrink-0',
                 newEvent.team === 'a'
@@ -320,14 +322,42 @@ export default function BackfillPage() {
             >
               {newEvent.team === 'a' ? teamAName || 'A' : teamBName || 'B'}
             </button>
-            <input
-              value={newEvent.scorer}
-              onChange={e => setNewEvent(ev => ({ ...ev, scorer: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && addEvent()}
-              placeholder="Scorer name"
-              className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
-                         text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500 text-sm"
-            />
+            {players.filter(p => p.team === newEvent.team).length > 0 ? (
+              <select
+                value={newEvent.scorer}
+                onChange={e => setNewEvent(ev => ({ ...ev, scorer: e.target.value }))}
+                className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                           text-white focus:outline-none focus:border-orange-500 text-sm
+                           [color-scheme:dark]"
+              >
+                <option value="">Select scorer...</option>
+                {players
+                  .filter(p => p.team === newEvent.team)
+                  .map((p, i) => (
+                    <option key={i} value={p.name}>{p.name}</option>
+                  ))}
+                <option value="__other__">Other...</option>
+              </select>
+            ) : (
+              <input
+                value={newEvent.scorer}
+                onChange={e => setNewEvent(ev => ({ ...ev, scorer: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && addEvent()}
+                placeholder="Scorer name"
+                className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                           text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500 text-sm"
+              />
+            )}
+            {newEvent.scorer === '__other__' && (
+              <input
+                autoFocus
+                value={''}
+                onChange={e => setNewEvent(ev => ({ ...ev, scorer: e.target.value }))}
+                placeholder="Type name..."
+                className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                           text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500 text-sm"
+              />
+            )}
             <div className="flex gap-1">
               {([1, 2, 3] as const).map(pts => (
                 <button
