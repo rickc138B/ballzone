@@ -26,6 +26,9 @@ export default function GamePage() {
   const [savingAttribution, setSavingAttribution] = useState(false)
   const [copiedResult, setCopiedResult] = useState(false)
   const [attributionDone, setAttributionDone] = useState(false)
+  const [commentary, setCommentary] = useState<string | null>(null)
+  const [commentaryLoading, setCommentaryLoading] = useState(false)
+  const [commentaryFetched, setCommentaryFetched] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [teamAName, setTeamAName] = useState('Team A')
   const [teamBName, setTeamBName] = useState('Team B')
@@ -156,7 +159,12 @@ export default function GamePage() {
   }
 
   async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3) {
-    await actions.addScore(side, points, selectedScorer ?? undefined)
+    const isWalkIn = selectedScorer?.startsWith('walkin_') ?? false
+    const participantId = selectedScorer && !isWalkIn ? selectedScorer : undefined
+    const scorerName = isWalkIn
+      ? players.find(p => p.id === selectedScorer)?.name ?? undefined
+      : undefined
+    await actions.addScore(side, points, participantId, scorerName)
     setLastScored(side)
     setPointSelector(null)
     setSelectedScorer(null)
@@ -164,6 +172,18 @@ export default function GamePage() {
   }
 
   const recentEvents = [...scoreEvents].reverse().filter(e => !e.voided).slice(0, 5)
+
+  useEffect(() => {
+    if (game?.status === 'complete' && game.id && !commentaryFetched) {
+      setCommentaryFetched(true)
+      setCommentaryLoading(true)
+      fetch(`/api/runs/${runId}/games/${game.id}/commentary`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.body) setCommentary(d.body) })
+        .catch(() => {})
+        .finally(() => setCommentaryLoading(false))
+    }
+  }, [game?.status, game?.id, commentaryFetched, runId])
 
   if (state.loading) {
     return (
@@ -684,6 +704,17 @@ export default function GamePage() {
                 >
                   {copiedResult ? '✓ Copied!' : '📋 Copy Result'}
                 </button>
+                {commentaryLoading && (
+                  <div className="card p-4 text-center">
+                    <p className="text-white/30 text-xs animate-pulse">🎙 Generating commentary...</p>
+                  </div>
+                )}
+                {commentary && !commentaryLoading && (
+                  <div className="card p-4 border-white/10">
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">🎙 Game Commentary</p>
+                    <p className="text-white/80 text-sm leading-relaxed">{commentary}</p>
+                  </div>
+                )}
                 {isOrganizer && (
                   <button
                     onClick={() => setNeedsSetup(true)}
