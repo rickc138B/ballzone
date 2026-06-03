@@ -197,7 +197,7 @@ export default function LeagueGamePage() {
                   <tbody className="divide-y divide-white/5">
                     {displayTeam.players.sort((a, b) => b.pts - a.pts).map(p => (
                       <tr key={p.id} className="text-white/70">
-                        <td className="px-3 py-2.5 font-semibold text-white whitespace-nowrap">{p.display_name}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap"><Link href={`/league/${leagueId}/player/${p.id}`} className="font-semibold text-white active:text-orange-400">{p.display_name}</Link></td>
                         <td className="text-center px-2 py-2.5 text-orange-400 font-bold">{p.pts}</td>
                         <td className="text-center px-2 py-2.5">{p.reb}</td>
                         <td className="text-center px-2 py-2.5">{p.ast}</td>
