@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '60px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '60px', width: '100%' }}>
           <div style={{ color: '#f97316', fontSize: '28px', fontWeight: 700, letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '12px' }}>
             {league}{round ? ` · ${round}` : ''}
           </div>
@@ -45,13 +45,13 @@ export async function GET(req: NextRequest) {
         </div>
 
         {/* Scores */}
-        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '60px', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '60px', gap: '24px', width: '100%' }}>
           {[
             { name: homeTeam, score: homeScore, won: homeWon },
             { name: awayTeam, score: awayScore, won: !homeWon },
           ].map(({ name, score, won }) => (
             <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: 'auto' }}>
                 {won && <span style={{ fontSize: '40px' }}>👑</span>}
                 <span style={{
                   color: won ? '#ffffff' : 'rgba(255,255,255,0.35)',
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
         <div style={{ height: '2px', background: 'rgba(255,255,255,0.08)', marginBottom: '60px' }} />
 
         {/* Stat leaders */}
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '80px' }}>
+        <div style={{ display: 'flex', gap: '24px', marginBottom: '80px', width: '100%' }}>
           {[
             { label: 'Points', player: topScorer, stat: `${topScorerPts} PTS`, emoji: '🔥' },
             { label: 'Boards', player: topRebounder, stat: `${topRebounderReb} REB`, emoji: '💪' },
@@ -99,8 +99,8 @@ export async function GET(req: NextRequest) {
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: 'auto' }}>
             <span style={{ fontSize: '48px' }}>⛹️</span>
             <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '48px' }}>Ballzone</span>
           </div>
