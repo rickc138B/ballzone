@@ -50,7 +50,7 @@ export default function GameShareCard({
       taa: String(topAssister?.ast ?? ''),
       dt: playedAt ? new Date(playedAt).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : '',
     })
-    return \`${base}?${p.toString()}\`
+    return `${base}?${p.toString()}`
   }
 
   async function handleShare() {
@@ -65,7 +65,7 @@ export default function GameShareCard({
         try {
           await navigator.share({
             files: [file],
-            title: \`${winner.name} ${winner.score} - ${loser.score} ${loser.name}\`,
+            title: `${winner.name} ${winner.score} - ${loser.score} ${loser.name}`,
             text: '🏀 Game result on Ballzone\nballzone-woad.vercel.app',
           })
           setSharing(false)
