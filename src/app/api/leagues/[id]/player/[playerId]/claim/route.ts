@@ -7,37 +7,32 @@ export async function POST(
 ) {
   try {
     const { playerId } = await params
-    const { claim_code, fingerprint } = await req.json()
-    if (!claim_code?.trim() || !fingerprint?.trim())
-      return NextResponse.json({ error: 'Code and fingerprint required' }, { status: 400 })
+    const { claim_code } = await req.json()
+
+    if (!claim_code?.trim())
+      return NextResponse.json({ error: 'Code required' }, { status: 400 })
 
     const supabase = createServiceClient()
 
     const { data: player, error } = await supabase
       .from('league_players')
-      .select('id, claim_code, claimed_by')
+      .select('id, claim_code, profile_id, claimed_by')
       .eq('id', playerId)
       .single()
 
-    if (error || !player) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    if (error || !player)
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
 
-    if (player.claimed_by) {
-      if (player.claimed_by === fingerprint)
-        return NextResponse.json({ success: true, already_claimed: true })
-      return NextResponse.json({ error: 'Already claimed by someone else' }, { status: 409 })
-    }
+    // Already claimed by a real profile
+    if (player.profile_id)
+      return NextResponse.json({ error: 'Already claimed' }, { status: 409 })
 
     if (player.claim_code !== claim_code.trim().toUpperCase())
       return NextResponse.json({ error: 'Invalid code' }, { status: 400 })
 
-    const { error: updateError } = await supabase
-      .from('league_players')
-      .update({ claimed_by: fingerprint, claimed_at: new Date().toISOString() })
-      .eq('id', playerId)
-
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
-
-    return NextResponse.json({ success: true })
+    // Code is valid — tell the client to now sign in with email
+    // The OTP verify route will link profile_id via participant_id
+    return NextResponse.json({ valid: true, participant_id: playerId })
   } catch (err) {
     console.error('Claim error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

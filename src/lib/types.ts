@@ -132,6 +132,8 @@ export interface RespondResponse {
 export interface Profile {
   id: string
   phone: string | null
+  email: string | null
+  auth_uid: string | null
   display_name: string | null
   avatar_url: string | null
   created_at: string

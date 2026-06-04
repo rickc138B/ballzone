@@ -13,6 +13,8 @@ type Game = {
   home_score: number | null
   away_score: number | null
   location_name: string | null
+  recap_image_url: string | null
+  status: string | null
   home_team: Team | null
   away_team: Team | null
 }
@@ -26,7 +28,9 @@ type Standing = {
   pts_against: number
 }
 type LeagueData = {
-  league: { id: string; title: string; season: string | null; location_name: string | null; description: string | null }
+  league: { id: string; title: string; season: string | null; location_name: string | null
+  recap_image_url: string | null
+  status: string | null; description: string | null }
   games: Game[]
   standings: Standing[]
 }
@@ -36,6 +40,26 @@ export default function LeaguePage() {
   const [data, setData] = useState<LeagueData | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'games' | 'standings'>('standings')
+  const [followed, setFollowed] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('followed_leagues')
+      const ids: string[] = raw ? JSON.parse(raw) : []
+      setFollowed(ids.includes(id))
+    } catch {}
+  }, [id])
+
+  function toggleFollow(e: React.MouseEvent) {
+    e.preventDefault()
+    try {
+      const raw = localStorage.getItem('followed_leagues')
+      const ids: string[] = raw ? JSON.parse(raw) : []
+      const next = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
+      localStorage.setItem('followed_leagues', JSON.stringify(next))
+      setFollowed(!ids.includes(id))
+    } catch {}
+  }
 
   useEffect(() => {
     fetch(`/api/leagues/${id}`)
@@ -69,7 +93,15 @@ export default function LeaguePage() {
             {league.location_name && <p className="text-white/40 text-sm">📍 {league.location_name}</p>}
             {league.description && <p className="text-white/40 text-sm mt-1 italic">{league.description}</p>}
           </div>
-          <div className="text-3xl">🏆</div>
+          <button
+            onClick={toggleFollow}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0
+              transition-all active:scale-90
+              ${followed ? 'bg-orange-500/20 border border-orange-500/40' : 'bg-white/5 border border-white/10'}`}
+            aria-label={followed ? 'Unfollow league' : 'Follow league'}
+          >
+            {followed ? '🔔' : '🔕'}
+          </button>
         </div>
       </div>
 
@@ -126,40 +158,65 @@ export default function LeaguePage() {
 
       {/* Games */}
       {tab === 'games' && (
-        <div className="space-y-4 mb-5">
+        <div className="flex flex-col gap-4 mb-5">
           {games.length === 0 && (
             <p className="text-white/30 text-sm text-center py-8">No games yet</p>
           )}
           {games.map(g => {
-            const homeWon = (g.home_score ?? 0) > (g.away_score ?? 0)
+            const isScheduled = g.home_score === null && g.away_score === null
+            const homeWon = !isScheduled && (g.home_score ?? 0) > (g.away_score ?? 0)
             return (
               <Link key={g.id} href={`/league/${id}/game/${g.id}`}>
-                <div className="card p-5 border-white/10 active:bg-white/5 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white/30 text-xs">
-                      {g.round_label ?? `Game ${g.sequence_number}`}
-                    </span>
+                <div className={`card p-5 active:bg-white/5 transition-colors ${isScheduled ? 'border-orange-500/20' : 'border-white/10'}`}>
+                  {/* Header row */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {isScheduled && (
+                        <span className="text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full">
+                          UPCOMING
+                        </span>
+                      )}
+                      <span className="text-white/30 text-xs">
+                        {g.round_label ?? `Game ${g.sequence_number}`}
+                      </span>
+                    </div>
                     {g.played_at && (
                       <span className="text-white/20 text-xs">
                         {new Date(g.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        {isScheduled && (
+                          <span className="ml-1">
+                            {new Date(g.played_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>
-                  <div className="space-y-1.5">
+                  {/* Recap thumbnail */}
+                  {g.recap_image_url && (
+                    <div className="relative w-full rounded-xl overflow-hidden mb-3" style={{aspectRatio:'3/2'}}>
+                      <img src={g.recap_image_url} alt="Recap" className="w-full h-full object-cover object-top" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    </div>
+                  )}
+                  {/* Teams */}
+                  <div className="space-y-3">
                     {[
                       { team: g.home_team, score: g.home_score, won: homeWon },
-                      { team: g.away_team, score: g.away_score, won: !homeWon },
+                      { team: g.away_team, score: g.away_score, won: !homeWon && !isScheduled },
                     ].map(({ team, score, won }) => (
                       <div key={team?.id} className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           {won && <span className="text-yellow-400 text-xs">👑</span>}
-                          <span className={won ? 'text-white font-semibold text-sm' : 'text-white/50 text-sm'}>
+                          <span className={won ? 'text-white font-semibold text-sm' : 'text-white/60 text-sm'}>
                             {team?.name ?? '—'}
                           </span>
                         </div>
-                        <span className={won ? 'text-orange-400 font-black text-lg tabular-nums' : 'text-white/30 font-black text-lg tabular-nums'}>
-                          {score ?? '—'}
-                        </span>
+                        {isScheduled
+                          ? <span className="text-white/20 text-xs font-medium">TBD</span>
+                          : <span className={won ? 'text-orange-400 font-black text-lg tabular-nums' : 'text-white/30 font-black text-lg tabular-nums'}>
+                              {score ?? '—'}
+                            </span>
+                        }
                       </div>
                     ))}
                   </div>
@@ -171,7 +228,7 @@ export default function LeaguePage() {
       )}
 
       {/* Actions */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <Link
           href={`/league/${id}/backfill`}
           className="w-full py-3 rounded-2xl font-bold text-sm bg-white/10 text-white

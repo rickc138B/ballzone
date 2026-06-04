@@ -11,7 +11,7 @@ export async function GET(
 
     const { data: player, error } = await supabase
       .from('league_players')
-      .select('id, display_name, league_team_id, claimed_by, league_teams(name, league_id)')
+      .select('id, display_name, photo_url, league_team_id, claimed_by, league_teams(name, league_id)')
       .eq('id', playerId)
       .single()
 
@@ -32,7 +32,7 @@ export async function GET(
 
     if (!stats || stats.length === 0) {
       return NextResponse.json({
-        player: { id: player.id, display_name: player.display_name, team_name: (player.league_teams as any)?.name, claimed_by: player.claimed_by ?? null },
+        player: { id: player.id, display_name: player.display_name, photo_url: (player as any).photo_url ?? null, team_name: (player.league_teams as any)?.name, claimed_by: player.claimed_by ?? null },
         averages: null,
         career_high: null,
         game_log: [],
@@ -84,7 +84,7 @@ export async function GET(
     const careerHighGame = game_log[stats.indexOf(careerHigh)]
 
     return NextResponse.json({
-      player: { id: player.id, display_name: player.display_name, team_name: (player.league_teams as any)?.name, claimed_by: player.claimed_by ?? null },
+      player: { id: player.id, display_name: player.display_name, photo_url: (player as any).photo_url ?? null, team_name: (player.league_teams as any)?.name, claimed_by: player.claimed_by ?? null },
       averages,
       career_high: { pts: careerHigh.pts, reb: careerHigh.reb, ast: careerHigh.ast, game: careerHighGame },
       game_log,
@@ -92,5 +92,51 @@ export async function GET(
   } catch (err) {
     console.error('Player profile error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; playerId: string }> }
+) {
+  try {
+    const { playerId } = await params
+    const { photo_url, fingerprint, pin } = await req.json()
+    if (!photo_url) return NextResponse.json({ error: 'Missing photo_url' }, { status: 400 })
+
+    const supabase = createServiceClient()
+
+    if (pin) {
+      // Admin path — verify PIN against league
+      const { id: leagueId } = await params
+      const bcrypt = await import('bcryptjs')
+      const { data: league } = await supabase
+        .from('leagues').select('admin_pin_hash').eq('id', leagueId).single()
+      if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
+      if (league.admin_pin_hash) {
+        const valid = await bcrypt.default.compare(pin.trim(), league.admin_pin_hash)
+        if (!valid) return NextResponse.json({ error: 'Invalid PIN' }, { status: 403 })
+      }
+    } else {
+      // Player path — verify fingerprint owns this player
+      if (!fingerprint) return NextResponse.json({ error: 'Missing auth' }, { status: 400 })
+      const { data: player } = await supabase
+        .from('league_players')
+        .select('claimed_by')
+        .eq('id', playerId)
+        .single()
+      if (!player || player.claimed_by !== fingerprint)
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+    }
+
+    const { error } = await supabase
+      .from('league_players')
+      .update({ photo_url })
+      .eq('id', playerId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

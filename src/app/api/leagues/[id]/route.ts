@@ -25,7 +25,7 @@ export async function GET(
     const { data: games } = await supabase
       .from('league_games')
       .select(`
-        id, sequence_number, round_label, played_at, home_score, away_score, status, location_name,
+        id, sequence_number, round_label, played_at, home_score, away_score, status, location_name, recap_image_url,
         home_team:league_teams!league_games_home_team_id_fkey(id, name),
         away_team:league_teams!league_games_away_team_id_fkey(id, name)
       `)

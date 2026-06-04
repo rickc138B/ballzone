@@ -7,7 +7,7 @@ import Link from 'next/link'
 const EMOJIS = ['🔥', '💪', '😤', '👑', '🎯', '💀', '🍿', '🫡']
 
 type PlayerStat = {
-  id: string; display_name: string
+  id: string; league_player_id: string; display_name: string
   pts: number; reb: number; ast: number; blk: number; stl: number; tov: number
   fga: number; fgm: number; three_pa: number; three_pm: number; fta: number; ftm: number
 }
@@ -15,6 +15,7 @@ type TeamBox = { id: string; name: string; score: number; players: PlayerStat[] 
 type GameDetail = {
   id: string; round_label: string | null; played_at: string | null; location_name: string | null
   home_team: TeamBox; away_team: TeamBox
+  home_score: number | null; away_score: number | null; recap_image_url: string | null
 }
 type Comment = { id: string; author_name: string; body: string; created_at: string }
 
@@ -24,6 +25,12 @@ export default function LeagueGamePage() {
   const [loading, setLoading] = useState(true)
   const [activeTeam, setActiveTeam] = useState<'home' | 'away'>('home')
   const [tab, setTab] = useState<'box' | 'comments'>('box')
+
+  // Admin photo upload
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false)
+  const [adminPin, setAdminPin] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState('')
 
   // Reactions
   const [reactions, setReactions] = useState<Record<string, number>>({})
@@ -83,6 +90,32 @@ export default function LeagueGamePage() {
     setSubmitting(false)
   }
 
+  async function uploadGamePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !adminPin.trim()) return
+    setUploadingPhoto(true); setPhotoError('')
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const ext = file.name.split('.').pop()
+    const uploadPath = `${gameId}/recap-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from('recap-images').upload(uploadPath, file, { upsert: true })
+    if (upErr) { setPhotoError('Upload failed'); setUploadingPhoto(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('recap-images').getPublicUrl(uploadPath)
+    const res = await fetch(`/api/leagues/${leagueId}/game/${gameId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: adminPin, recap_image_url: publicUrl }),
+    })
+    if (!res.ok) { setPhotoError('Save failed — check PIN'); setUploadingPhoto(false); return }
+    setGame(g => g ? { ...g, recap_image_url: publicUrl } : g)
+    setShowPhotoUpload(false)
+    setUploadingPhoto(false)
+  }
+
   if (loading) return (
     <main className="min-h-dvh flex items-center justify-center">
       <div className="text-white/40 text-lg">Loading...</div>
@@ -94,9 +127,10 @@ export default function LeagueGamePage() {
     </main>
   )
 
-  const homeWon = game.home_team.score > game.away_team.score
+  const isScheduled = game.home_team.score === null && game.away_team.score === null
+  const homeWon = !isScheduled && game.home_team.score > game.away_team.score
   const displayTeam = activeTeam === 'home' ? game.home_team : game.away_team
-  const topScorer = [...game.home_team.players, ...game.away_team.players]
+  const topScorer = [...(game.home_team.players ?? []), ...(game.away_team.players ?? [])]
     .sort((a, b) => b.pts - a.pts)[0]
 
   return (
@@ -111,6 +145,69 @@ export default function LeagueGamePage() {
           </p>
         )}
 
+        {/* Live scoring CTA for scheduled games */}
+        {isScheduled && (
+          <Link
+            href={`/league/${leagueId}/game/${gameId}/live`}
+            className="w-full mb-4 py-3.5 rounded-2xl font-bold bg-green-500 text-white
+                       flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            ▶ Start Live Scoring
+          </Link>
+        )}
+
+        {/* Recap image */}
+        {game.recap_image_url && (
+          <div className="relative w-full rounded-2xl overflow-hidden mb-4" style={{aspectRatio:'1'}}>
+            <img src={game.recap_image_url} alt="Game recap" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+            <div className="absolute bottom-4 left-4 right-4">
+              <p className="text-white/50 text-xs uppercase tracking-wider mb-0.5">Final</p>
+              <p className="text-white font-black text-xl">{homeWon ? game.home_team.name : game.away_team.name} wins</p>
+              <p className="text-orange-400 font-black text-4xl">{game.home_score}–{game.away_score}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Admin photo upload — shown when no recap image exists */}
+        {!game.recap_image_url && (
+          <div className="mb-3">
+            {!showPhotoUpload ? (
+              <button
+                onClick={() => setShowPhotoUpload(true)}
+                className="w-full py-2.5 rounded-2xl border border-dashed border-white/10
+                           text-white/20 text-xs active:bg-white/5 transition-colors"
+              >
+                📸 Add game photo
+              </button>
+            ) : (
+              <div className="card p-3 border-white/10 space-y-2">
+                <input
+                  type="password"
+                  value={adminPin}
+                  onChange={e => setAdminPin(e.target.value)}
+                  placeholder="Admin PIN"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2
+                             text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-orange-500/50"
+                />
+                <label className={`flex items-center justify-center w-full py-2.5 rounded-xl text-sm
+                                  border transition-colors cursor-pointer
+                                  ${!adminPin.trim() || uploadingPhoto
+                                    ? 'border-white/10 text-white/20 cursor-not-allowed'
+                                    : 'border-orange-500/40 text-orange-400 active:bg-orange-500/10'}`}>
+                  {uploadingPhoto ? 'Uploading...' : '📸 Choose photo'}
+                  <input type="file" accept="image/*" className="hidden"
+                         onChange={uploadGamePhoto}
+                         disabled={!adminPin.trim() || uploadingPhoto} />
+                </label>
+                {photoError && <p className="text-red-400 text-xs">{photoError}</p>}
+                <button onClick={() => { setShowPhotoUpload(false); setPhotoError('') }}
+                        className="w-full text-white/20 text-xs py-1">Cancel</button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Score card */}
         <div className="card p-4 border-white/10 mb-3">
           <div className="space-y-2">
@@ -121,7 +218,7 @@ export default function LeagueGamePage() {
                   <span className={won ? 'text-white font-bold' : 'text-white/50'}>{team.name}</span>
                 </div>
                 <span className={won ? 'text-orange-400 font-black text-2xl tabular-nums' : 'text-white/30 font-black text-2xl tabular-nums'}>
-                  {team.score}
+                  {isScheduled ? 'TBD' : team.score}
                 </span>
               </div>
             ))}
@@ -195,9 +292,9 @@ export default function LeagueGamePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {displayTeam.players.sort((a, b) => b.pts - a.pts).map(p => (
+                    {(displayTeam.players ?? []).sort((a, b) => b.pts - a.pts).map(p => (
                       <tr key={p.id} className="text-white/70">
-                        <td className="px-3 py-2.5 whitespace-nowrap"><Link href={`/league/${leagueId}/player/${p.id}`} className="font-semibold text-white active:text-orange-400">{p.display_name}</Link></td>
+                        <td className="px-3 py-2.5 whitespace-nowrap"><Link href={`/league/${leagueId}/player/${p.league_player_id}`} className="font-semibold text-white active:text-orange-400">{p.display_name}</Link></td>
                         <td className="text-center px-2 py-2.5 text-orange-400 font-bold">{p.pts}</td>
                         <td className="text-center px-2 py-2.5">{p.reb}</td>
                         <td className="text-center px-2 py-2.5">{p.ast}</td>

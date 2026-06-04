@@ -18,7 +18,7 @@ type GameLog = {
 }
 type CareerHigh = { pts: number; reb: number; ast: number; game: GameLog }
 type ProfileData = {
-  player: { id: string; display_name: string; team_name: string; claimed_by: string | null }
+  player: { id: string; display_name: string; photo_url: string | null; team_name: string; claimed_by: string | null }
   averages: Averages | null
   career_high: CareerHigh | null
   game_log: GameLog[]
@@ -38,10 +38,19 @@ export default function PlayerProfilePage() {
   const [claimError, setClaimError] = useState('')
   const [claimSuccess, setClaimSuccess] = useState(false)
 
+  // Photo upload
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  const [showAdminPhoto, setShowAdminPhoto] = useState(false)
+  const [adminPhotoPin, setAdminPhotoPin] = useState('')
+  const [uploadingAdminPhoto, setUploadingAdminPhoto] = useState(false)
+  const [adminPhotoError, setAdminPhotoError] = useState('')
+
   useEffect(() => {
     fetch(`/api/leagues/${leagueId}/player/${playerId}`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+      .then(d => { setData(d); setPhotoUrl(d.player?.photo_url ?? null); setLoading(false) })
 
     getFingerprint().then(fp => {
       setFingerprint(fp)
@@ -51,11 +60,37 @@ export default function PlayerProfilePage() {
   }, [leagueId, playerId])
 
   useEffect(() => {
-    if (data && fingerprint && data.player.claimed_by === fingerprint) {
+    if (data?.player && fingerprint && data.player.claimed_by === fingerprint) {
       setIsMine(true)
       localStorage.setItem(`claimed:${playerId}`, fingerprint)
     }
   }, [data, fingerprint, playerId])
+
+  async function uploadAdminPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !adminPhotoPin.trim()) return
+    setUploadingAdminPhoto(true); setAdminPhotoError('')
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const ext = file.name.split('.').pop()
+    const uploadPath = `players/${playerId}/photo-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from('recap-images').upload(uploadPath, file, { upsert: true })
+    if (upErr) { setAdminPhotoError('Upload failed'); setUploadingAdminPhoto(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('recap-images').getPublicUrl(uploadPath)
+    const res = await fetch(`/api/leagues/${leagueId}/player/${playerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photo_url: publicUrl, pin: adminPhotoPin }),
+    })
+    if (!res.ok) { setAdminPhotoError('Save failed — check PIN'); setUploadingAdminPhoto(false); return }
+    setPhotoUrl(publicUrl)
+    setShowAdminPhoto(false)
+    setUploadingAdminPhoto(false)
+  }
 
   async function submitClaim() {
     if (!claimCode.trim()) return
@@ -64,15 +99,39 @@ export default function PlayerProfilePage() {
     const res = await fetch(`/api/leagues/${leagueId}/player/${playerId}/claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ claim_code: claimCode.trim(), fingerprint }),
+      body: JSON.stringify({ claim_code: claimCode.trim() }),
     })
     const result = await res.json()
-    if (!res.ok) { setClaimError(result.error); setClaiming(false); return }
-    setClaimSuccess(true)
-    setIsMine(true)
-    localStorage.setItem(`claimed:${playerId}`, fingerprint)
     setClaiming(false)
-    setShowClaim(false)
+    if (!res.ok) { setClaimError(result.error); return }
+    localStorage.setItem('bz_participant_id', playerId)
+    window.location.href = '/profile?claim=1'
+  }
+
+  async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !fingerprint) return
+    setUploadingPhoto(true); setPhotoError('')
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const ext = file.name.split('.').pop()
+    const uploadPath = `players/${playerId}/photo-${Date.now()}.${ext}`
+    const { error: uploadErr } = await supabase.storage
+      .from('recap-images')
+      .upload(uploadPath, file, { upsert: true })
+    if (uploadErr) { setPhotoError('Upload failed'); setUploadingPhoto(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('recap-images').getPublicUrl(uploadPath)
+    const res = await fetch(`/api/leagues/${leagueId}/player/${playerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photo_url: publicUrl, fingerprint }),
+    })
+    if (!res.ok) { setPhotoError('Save failed'); setUploadingPhoto(false); return }
+    setPhotoUrl(publicUrl)
+    setUploadingPhoto(false)
   }
 
   if (loading) return (
@@ -98,9 +157,20 @@ export default function PlayerProfilePage() {
         {/* Player header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-orange-500/20 border border-orange-500/30
-                            flex items-center justify-center text-2xl">
-              🏀
+            <div className="relative w-14 h-14">
+              <div className="w-14 h-14 rounded-2xl bg-orange-500/20 border border-orange-500/30
+                              overflow-hidden flex items-center justify-center text-2xl">
+                {photoUrl
+                  ? <img src={photoUrl} alt={player.display_name} className="w-full h-full object-cover" />
+                  : <span>🏀</span>}
+              </div>
+              {isMine && (
+                <label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-orange-500
+                                  flex items-center justify-center cursor-pointer active:scale-90 transition-transform">
+                  <span className="text-white text-xs">+</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={uploadPhoto} disabled={uploadingPhoto} />
+                </label>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -121,6 +191,45 @@ export default function PlayerProfilePage() {
             </button>
           )}
         </div>
+
+        {/* Admin photo panel — for unclaimed players */}
+        {!isClaimed && !photoUrl && (
+          <div className="mb-3">
+            {!showAdminPhoto ? (
+              <button
+                onClick={() => setShowAdminPhoto(true)}
+                className="text-xs text-white/20 underline"
+              >
+                Admin: add player photo
+              </button>
+            ) : (
+              <div className="card p-3 border-white/10 space-y-2">
+                <p className="text-white/40 text-xs">Admin PIN required</p>
+                <input
+                  type="password"
+                  value={adminPhotoPin}
+                  onChange={e => setAdminPhotoPin(e.target.value)}
+                  placeholder="Admin PIN"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2
+                             text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-orange-500/50"
+                />
+                <label className={`flex items-center justify-center w-full py-2.5 rounded-xl text-sm
+                                  border transition-colors cursor-pointer
+                                  ${!adminPhotoPin.trim() || uploadingAdminPhoto
+                                    ? 'border-white/10 text-white/20 cursor-not-allowed'
+                                    : 'border-orange-500/40 text-orange-400 active:bg-orange-500/10'}`}>
+                  {uploadingAdminPhoto ? 'Uploading...' : '📸 Choose photo'}
+                  <input type="file" accept="image/*" className="hidden"
+                         onChange={uploadAdminPhoto}
+                         disabled={!adminPhotoPin.trim() || uploadingAdminPhoto} />
+                </label>
+                {adminPhotoError && <p className="text-red-400 text-xs">{adminPhotoError}</p>}
+                <button onClick={() => { setShowAdminPhoto(false); setAdminPhotoError('') }}
+                        className="w-full text-white/20 text-xs py-1">Cancel</button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Claim panel */}
         {showClaim && !isMine && (

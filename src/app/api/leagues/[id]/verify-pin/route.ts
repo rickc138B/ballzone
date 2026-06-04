@@ -19,7 +19,18 @@ export async function POST(
       .single()
 
     if (error || !league) return NextResponse.json({ valid: false }, { status: 404 })
-    if (!league.admin_pin_hash) return NextResponse.json({ valid: true }) // no PIN set, open
+
+    if (!league.admin_pin_hash) {
+      if (pin.trim().length < 4) {
+        return NextResponse.json(
+          { valid: false, reason: 'too_short', message: 'PIN must be at least 4 characters' },
+          { status: 400 }
+        )
+      }
+      const hash = await bcrypt.hash(pin.trim(), 10)
+      await supabase.from('leagues').update({ admin_pin_hash: hash }).eq('id', id)
+      return NextResponse.json({ valid: true, pin_set: true })
+    }
 
     const valid = await bcrypt.compare(pin.trim(), league.admin_pin_hash)
     return NextResponse.json({ valid })

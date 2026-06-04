@@ -2,57 +2,79 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; gameId: string }> }
 ) {
   try {
-    const { gameId } = await params
+    const { id: leagueId, gameId } = await params
     const supabase = createServiceClient()
 
-    const { data: game, error } = await supabase
+    const { data, error } = await supabase
       .from('league_games')
       .select(`
-        id, round_label, played_at, location_name, home_score, away_score,
+        id, status, round_label, played_at, home_score, away_score, recap_image_url, location_name,
         home_team:league_teams!league_games_home_team_id_fkey(id, name),
         away_team:league_teams!league_games_away_team_id_fkey(id, name)
       `)
       .eq('id', gameId)
       .single()
 
-    if (error || !game) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    // Fetch player stats for each team
     const { data: stats } = await supabase
       .from('player_game_stats')
-      .select(`
-        id, league_team_id, pts, reb, ast, blk, stl, tov, fga, fgm, three_pa, three_pm, fta, ftm,
-        player:league_players!player_game_stats_league_player_id_fkey(id, display_name)
-      `)
+      .select('*, league_players(display_name)')
       .eq('league_game_id', gameId)
 
-    const homeId = (game.home_team as any)?.id
-    const awayId = (game.away_team as any)?.id
-
-    function mapStats(teamId: string) {
-      return (stats ?? [])
-        .filter(s => s.league_team_id === teamId)
-        .map(s => ({
-          id: (s.player as any)?.id,
-          display_name: (s.player as any)?.display_name ?? 'Unknown',
-          pts: s.pts, reb: s.reb, ast: s.ast, blk: s.blk, stl: s.stl, tov: s.tov,
-          fga: s.fga, fgm: s.fgm, three_pa: s.three_pa, three_pm: s.three_pm, fta: s.fta, ftm: s.ftm,
-        }))
-    }
+    const flatten = (s: any) => ({ ...s, display_name: s.league_players?.display_name ?? s.display_name ?? "Unknown" })
+    const homePlayers = (stats ?? []).filter((s: any) => s.league_team_id === (data.home_team as any).id).map(flatten)
+    const awayPlayers = (stats ?? []).filter((s: any) => s.league_team_id === (data.away_team as any).id).map(flatten)
 
     return NextResponse.json({
-      id: game.id,
-      round_label: game.round_label,
-      played_at: game.played_at,
-      location_name: game.location_name,
-      home_team: { id: homeId, name: (game.home_team as any)?.name, score: game.home_score, players: mapStats(homeId) },
-      away_team: { id: awayId, name: (game.away_team as any)?.name, score: game.away_score, players: mapStats(awayId) },
+      ...data,
+      home_team: { ...(data.home_team as any), score: data.home_score ?? 0, players: homePlayers },
+      away_team: { ...(data.away_team as any), score: data.away_score ?? 0, players: awayPlayers },
     })
-  } catch (err) {
-    console.error('GET league game error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (e) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; gameId: string }> }
+) {
+  try {
+    const { id: leagueId, gameId } = await params
+    const { pin, status, home_score, away_score, recap_image_url } = await req.json()
+
+    if (!pin?.trim()) return NextResponse.json({ error: 'PIN required' }, { status: 400 })
+
+    const supabase = createServiceClient()
+
+    const { data: league } = await supabase
+      .from('leagues').select('admin_pin_hash').eq('id', leagueId).single()
+    if (!league) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (league.admin_pin_hash) {
+      const bcrypt = require('bcryptjs')
+      const valid = await bcrypt.compare(pin.trim(), league.admin_pin_hash)
+      if (!valid) return NextResponse.json({ error: 'Invalid PIN' }, { status: 403 })
+    }
+
+    const updates: Record<string, any> = {}
+    if (status !== undefined) updates.status = status
+    if (home_score !== undefined) updates.home_score = home_score
+    if (away_score !== undefined) updates.away_score = away_score
+    if (recap_image_url !== undefined) updates.recap_image_url = recap_image_url
+    if (status === 'complete') updates.played_at = new Date().toISOString()
+
+    const { error } = await supabase
+      .from('league_games').update(updates).eq('id', gameId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
