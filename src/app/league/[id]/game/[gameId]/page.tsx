@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import GameShareCard from '@/components/GameShareCard'
 
 const EMOJIS = ['🔥', '💪', '😤', '👑', '🎯', '💀', '🍿', '🫡']
 
@@ -15,7 +16,7 @@ type TeamBox = { id: string; name: string; score: number; players: PlayerStat[] 
 type GameDetail = {
   id: string; round_label: string | null; played_at: string | null; location_name: string | null
   home_team: TeamBox; away_team: TeamBox
-  home_score: number | null; away_score: number | null; recap_image_url: string | null
+  home_score: number | null; away_score: number | null; recap_image_url: string | null; league: { title: string } | null
 }
 type Comment = { id: string; author_name: string; body: string; created_at: string }
 
@@ -229,6 +230,22 @@ export default function LeagueGamePage() {
             </p>
           )}
         </div>
+
+        {/* Share Card */}
+        {!isScheduled && (
+          <div className="mb-4">
+            <GameShareCard
+              leagueName={game.league?.title}
+              roundLabel={game.round_label}
+              homeTeam={{ name: game.home_team.name, score: game.home_team.score }}
+              awayTeam={{ name: game.away_team.name, score: game.away_team.score }}
+              homePlayers={game.home_team.players}
+              awayPlayers={game.away_team.players}
+              playedAt={game.played_at}
+              locationName={game.location_name}
+            />
+          </div>
+        )}
 
         {/* Reactions */}
         <div className="flex gap-2 flex-wrap mb-4">

@@ -13,6 +13,7 @@ export async function GET(
       .from('league_games')
       .select(`
         id, status, round_label, played_at, home_score, away_score, recap_image_url, location_name,
+        league:leagues!league_games_league_id_fkey(title),
         home_team:league_teams!league_games_home_team_id_fkey(id, name),
         away_team:league_teams!league_games_away_team_id_fkey(id, name)
       `)
