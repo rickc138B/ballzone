@@ -25,7 +25,13 @@ export default function LeagueGamePage() {
   const [game, setGame] = useState<GameDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTeam, setActiveTeam] = useState<'home' | 'away'>('home')
-  const [tab, setTab] = useState<'box' | 'comments'>('box')
+  const [tab, setTab] = useState<'box' | 'comments' | 'clips'>('box')
+  const [clips, setClips] = useState<{id:string;url:string;platform:string;caption:string|null;added_by:string;created_at:string}[]>([])
+  const [clipUrl, setClipUrl] = useState('')
+  const [clipCaption, setClipCaption] = useState('')
+  const [clipName, setClipName] = useState('')
+  const [showAddClip, setShowAddClip] = useState(false)
+  const [submittingClip, setSubmittingClip] = useState(false)
 
   // Admin photo upload
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
@@ -55,7 +61,9 @@ export default function LeagueGamePage() {
     const stored = localStorage.getItem(`lgReactions:${gameId}`)
     if (stored) setMyReactions(JSON.parse(stored))
     const name = localStorage.getItem('ballzone:commentName')
-    if (name) setCommentName(name)
+    if (name) { setCommentName(name); setClipName(name) }
+    fetch(`/api/leagues/${leagueId}/game/${gameId}/clips`)
+      .then(r => r.json()).then(d => setClips(Array.isArray(d) ? d : []))
   }, [leagueId, gameId])
 
   async function react(emoji: string) {
@@ -115,6 +123,28 @@ export default function LeagueGamePage() {
     setGame(g => g ? { ...g, recap_image_url: publicUrl } : g)
     setShowPhotoUpload(false)
     setUploadingPhoto(false)
+  }
+
+  const PLATFORM_ICONS: Record<string, string> = {
+    tiktok: '🎵', instagram: '📸', twitter: '🐦', youtube: '▶️', other: '🔗',
+  }
+
+  async function submitClip() {
+    if (!clipUrl.trim()) return
+    setSubmittingClip(true)
+    const name = clipName.trim() || 'Anonymous'
+    localStorage.setItem('ballzone:commentName', name)
+    const res = await fetch(`/api/leagues/${leagueId}/game/${gameId}/clips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: clipUrl.trim(), caption: clipCaption.trim(), added_by: name }),
+    })
+    if (res.ok) {
+      const c = await res.json()
+      setClips(prev => [c, ...prev])
+      setClipUrl(''); setClipCaption(''); setShowAddClip(false)
+    }
+    setSubmittingClip(false)
   }
 
   if (loading) return (
@@ -265,14 +295,14 @@ export default function LeagueGamePage() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-4">
-          {(['box', 'comments'] as const).map(t => (
+          {(['box', 'comments', 'clips'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all
                 ${tab === t ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/50'}`}
             >
-              {t === 'box' ? '📊 Box Score' : `💬 Comments${comments.length ? ` (${comments.length})` : ''}`}
+              {t === 'box' ? '📊 Box Score' : t === 'comments' ? `💬 Comments${comments.length ? ` (${comments.length})` : ''}` : `🎬 Clips${clips.length ? ` (${clips.length})` : ''}`}
             </button>
           ))}
         </div>
@@ -350,6 +380,64 @@ export default function LeagueGamePage() {
           </div>
         )}
       </div>
+
+      {/* Clips */}
+      {tab === 'clips' && (
+        <div className="space-y-4 mb-4">
+          {!showAddClip ? (
+            <button onClick={() => setShowAddClip(true)}
+              className="w-full py-3 rounded-2xl border border-dashed border-white/20
+                         text-white/40 text-sm active:bg-white/5">
+              + Add a clip
+            </button>
+          ) : (
+            <div className="card p-4 space-y-3 border-orange-500/20">
+              <p className="text-white/60 text-sm font-semibold">Share a clip</p>
+              <input value={clipUrl} onChange={e => setClipUrl(e.target.value)}
+                placeholder="Paste TikTok, Instagram, YouTube or Twitter link"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5
+                           text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-orange-500/50" />
+              <input value={clipCaption} onChange={e => setClipCaption(e.target.value)}
+                placeholder="Caption (optional)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5
+                           text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-orange-500/50" />
+              <input value={clipName} onChange={e => setClipName(e.target.value)}
+                placeholder="Your name"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5
+                           text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-orange-500/50" />
+              <div className="flex gap-2">
+                <button onClick={submitClip} disabled={!clipUrl.trim() || submittingClip}
+                  className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold disabled:opacity-30">
+                  {submittingClip ? 'Adding...' : 'Add Clip'}
+                </button>
+                <button onClick={() => setShowAddClip(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white/10 text-white/40 text-sm">Cancel</button>
+              </div>
+            </div>
+          )}
+          {clips.map(clip => (
+            <div key={clip.id} className="card p-4 border-white/5">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl">{PLATFORM_ICONS[clip.platform] ?? '🔗'}</span>
+                <a href={clip.url} target="_blank" rel="noopener noreferrer"
+                  className="text-orange-400 text-sm truncate flex-1 active:opacity-70">
+                  {clip.caption || clip.url}
+                </a>
+                <span className="text-white/20 text-xs flex-shrink-0">↗</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/30 text-xs">{clip.added_by}</span>
+                <span className="text-white/20 text-xs">
+                  {new Date(clip.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </span>
+              </div>
+            </div>
+          ))}
+          {clips.length === 0 && !showAddClip && (
+            <p className="text-white/20 text-sm text-center py-8">No clips yet</p>
+          )}
+        </div>
+      )}
 
       {/* Comment input — sticky bottom */}
       {tab === 'comments' && (
