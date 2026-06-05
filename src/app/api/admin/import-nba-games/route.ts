@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const { data: teams } = await supabase
       .from('pro_teams')
       .select('id, abbreviation')
-      .eq('league_id', 'nba-2024-25')
+      .eq('league_id', 'nba-2025-26')
 
     const teamByAbbr: Record<string, string> = {}
     for (const t of teams ?? []) {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       if (!player.external_id) continue
 
       try {
-        const url = `https://stats.nba.com/stats/playergamelog?PlayerID=${player.external_id}&Season=2024-25&SeasonType=Regular+Season`
+        const url = `https://stats.nba.com/stats/playergamelog?PlayerID=${player.external_id}&Season=2025-26&SeasonType=Regular+Season`
         const res = await fetch(url, { headers: NBA_HEADERS })
         if (!res.ok) { skipped++; continue }
 
@@ -74,8 +74,8 @@ export async function POST(req: NextRequest) {
             player_id: player.id,
             team_id: player.current_team_id,
             opponent_id: opponentId,
-            league_id: 'nba-2024-25',
-            season: '2024-25',
+            league_id: 'nba-2025-26',
+            season: '2025-26',
             game_date: r.GAME_DATE
               ? new Date(r.GAME_DATE).toISOString().split('T')[0]
               : null,
