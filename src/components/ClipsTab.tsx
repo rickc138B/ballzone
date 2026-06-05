@@ -34,8 +34,8 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/clips/${clip.id}/react`).then(r => r.json()).then(setReactions)
-    fetch(`/api/leagues/${leagueId}/clips/${clip.id}/comments`).then(r => r.json()).then(setComments)
+    fetch(`${leagueId}/clips/${clip.id}/react`).then(r => r.json()).then(setReactions)
+    fetch(`${leagueId}/clips/${clip.id}/comments`).then(r => r.json()).then(setComments)
     const stored = localStorage.getItem(`clipReactions:${clip.id}`)
     if (stored) setMyReactions(JSON.parse(stored))
   }, [clip.id, leagueId])
@@ -47,7 +47,7 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
     setMyReactions(updated)
     localStorage.setItem(`clipReactions:${clip.id}`, JSON.stringify(updated))
     setReactions(r => ({ ...r, [emoji]: (r[emoji] ?? 0) + 1 }))
-    await fetch(`/api/leagues/${leagueId}/clips/${clip.id}/react`, {
+    await fetch(`${leagueId}/clips/${clip.id}/react`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ emoji, author_name: name }),
@@ -58,7 +58,7 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
     if (!commentBody.trim()) return
     setSubmitting(true)
     const name = userName || 'Anonymous'
-    const res = await fetch(`/api/leagues/${leagueId}/clips/${clip.id}/comments`, {
+    const res = await fetch(`${leagueId}/clips/${clip.id}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ author_name: name, body: commentBody.trim() }),
@@ -188,7 +188,7 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
   )
 }
 
-export default function ClipsTab({ leagueId }: { leagueId: string }) {
+export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; apiBase?: string }) {
   const [clips, setClips] = useState<Clip[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -204,7 +204,7 @@ export default function ClipsTab({ leagueId }: { leagueId: string }) {
   }, [])
 
   useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/clips`)
+    fetch(`${apiBase ?? `/api/leagues/${leagueId}`}/clips`)
       .then(r => r.json())
       .then(d => { setClips(Array.isArray(d) ? d : []); setLoading(false) })
   }, [leagueId])
@@ -216,7 +216,7 @@ export default function ClipsTab({ leagueId }: { leagueId: string }) {
     try {
       const name = userName.trim() || 'Anonymous'
       localStorage.setItem('ballzone:commentName', name)
-      const res = await fetch(`/api/leagues/${leagueId}/clips`, {
+      const res = await fetch(`${apiBase ?? `/api/leagues/${leagueId}`}/clips`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, caption, added_by: name }),
@@ -282,7 +282,7 @@ export default function ClipsTab({ leagueId }: { leagueId: string }) {
       )}
 
       {clips.map(clip => (
-        <ClipCard key={clip.id} clip={clip} leagueId={leagueId} userName={userName} />
+        <ClipCard key={clip.id} clip={clip} leagueId={apiBase ?? leagueId ?? ''}  userName={userName} />
       ))}
     </div>
   )

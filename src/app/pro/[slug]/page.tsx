@@ -344,7 +344,7 @@ export default function ProLeaguePage() {
         {/* Clips */}
         {tab === 'clips' && (
           <div className="mb-5">
-            <ClipsTab leagueId={data.league.id} />
+            <ClipsTab apiBase={`/api/pro/${slug}`} />
           </div>
         )}
       </div>
