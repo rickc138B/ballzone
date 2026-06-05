@@ -17,8 +17,12 @@ async function fetchOEmbed(url: string, platform: string): Promise<string | null
       return data.html ?? null
     }
     if (platform === 'instagram') {
-      const res = await fetch(`https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&omit_script=true&access_token=`)
-      // Instagram oEmbed requires token — fallback to link card
+      // Extract shortcode from URL and use direct embed iframe
+      const match = url.match(/instagram\.com\/(p|reel|tv)\/([A-Za-z0-9_-]+)/)
+      if (match) {
+        const shortcode = match[2]
+        return `<iframe src="https://www.instagram.com/p/${shortcode}/embed/" width="100%" height="480" frameborder="0" scrolling="no" allowtransparency="true" allow="encrypted-media" style="border:none;overflow:hidden;background:#0f0f1a"></iframe>`
+      }
       return null
     }
     if (platform === 'youtube') {
