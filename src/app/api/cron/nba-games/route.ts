@@ -14,8 +14,9 @@ function formatDate(d: Date) {
   return `${mm}%2F${dd}%2F${yyyy}`
 }
 
+const teamIdFromExternal = (extId: string) => `nba-team-${extId}`
+
 export async function GET(req: NextRequest) {
-  // Vercel cron sends Authorization header
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,7 +26,6 @@ export async function GET(req: NextRequest) {
   const results: string[] = []
 
   try {
-    // Fetch yesterday's scoreboard
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     const dateStr = formatDate(yesterday)
@@ -35,21 +35,74 @@ export async function GET(req: NextRequest) {
       `https://stats.nba.com/stats/scoreboardV2?DayOffset=0&LeagueID=00&gameDate=${dateStr}`,
       { headers: NBA_HEADERS }
     )
-
     if (!scoreboardRes.ok) {
       return NextResponse.json({ error: `Scoreboard fetch failed: ${scoreboardRes.status}` }, { status: 500 })
     }
 
     const scoreboardData = await scoreboardRes.json()
     const gameHeader = scoreboardData.resultSets?.find((r: any) => r.name === 'GameHeader')
+    const lineScore = scoreboardData.resultSets?.find((r: any) => r.name === 'LineScore')
+
     if (!gameHeader?.rowSet?.length) {
       return NextResponse.json({ success: true, results: ['No games yesterday'] })
     }
 
-    const gameIds: string[] = gameHeader.rowSet.map((row: any[]) => row[2]) // GAME_ID is index 2
+    // Build scores map from LineScore
+    const lsH: string[] = lineScore?.headers ?? []
+    const lsPtsIdx = lsH.indexOf('PTS')
+    const lsGameIdIdx = lsH.indexOf('GAME_ID')
+    const lsTeamIdIdx = lsH.indexOf('TEAM_ID')
+
+    const scoresByGame: Record<string, { teamId: string; pts: number }[]> = {}
+    for (const row of lineScore?.rowSet ?? []) {
+      const gid = row[lsGameIdIdx]
+      if (!scoresByGame[gid]) scoresByGame[gid] = []
+      scoresByGame[gid].push({ teamId: String(row[lsTeamIdIdx]), pts: row[lsPtsIdx] ?? 0 })
+    }
+
+    // Parse GameHeader for home/away team IDs
+    const ghH: string[] = gameHeader.headers ?? []
+    const ghGameIdIdx = ghH.indexOf('GAME_ID')
+    const ghHomeIdx = ghH.indexOf('HOME_TEAM_ID')
+    const ghAwayIdx = ghH.indexOf('VISITOR_TEAM_ID')
+    const ghStatusIdx = ghH.indexOf('GAME_STATUS_TEXT')
+
+    const proGames: any[] = []
+    const gameIds: string[] = []
+
+    for (const row of gameHeader.rowSet) {
+      const gameId = row[ghGameIdIdx]
+      const homeExtId = String(row[ghHomeIdx])
+      const awayExtId = String(row[ghAwayIdx])
+      const status = row[ghStatusIdx] ?? 'Final'
+
+      const scores = scoresByGame[gameId] ?? []
+      const homeScore = scores.find(s => s.teamId === homeExtId)?.pts ?? 0
+      const awayScore = scores.find(s => s.teamId === awayExtId)?.pts ?? 0
+      if (homeScore === 0 && awayScore === 0) continue
+
+      proGames.push({
+        id: `nba-game-${gameId}`,
+        league_id: 'nba-2025-26',
+        game_date: isoDate,
+        home_team_id: teamIdFromExternal(homeExtId),
+        away_team_id: teamIdFromExternal(awayExtId),
+        home_score: homeScore,
+        away_score: awayScore,
+        status,
+      })
+      gameIds.push(gameId)
+    }
+
+    if (proGames.length) {
+      const { error } = await supabase.from('pro_games').upsert(proGames, { onConflict: 'id' })
+      if (error) results.push(`pro_games upsert error: ${error.message}`)
+      else results.push(`Upserted ${proGames.length} games`)
+    }
+
     results.push(`Found ${gameIds.length} games on ${isoDate}`)
 
-    // Get our player map (external_id → our id + team_id)
+    // Player map
     const { data: players } = await supabase
       .from('pro_players')
       .select('id, external_id, current_team_id')
@@ -60,11 +113,10 @@ export async function GET(req: NextRequest) {
       if (p.external_id) playerMap[p.external_id] = { id: p.id, team_id: p.current_team_id }
     }
 
-    // Get team map
     const { data: teams } = await supabase
       .from('pro_teams')
       .select('id, abbreviation')
-      .eq('league_id', 'nba-2024-25')
+      .eq('league_id', 'nba-2025-26')
 
     const teamByAbbr: Record<string, string> = {}
     for (const t of teams ?? []) {
@@ -92,7 +144,7 @@ export async function GET(req: NextRequest) {
 
           const externalId = String(r.PLAYER_ID)
           const mapped = playerMap[externalId]
-          if (!mapped) continue // player not in our DB, skip
+          if (!mapped) continue
 
           const matchupParts = (r.MATCHUP as string ?? '').split(/\s+(?:vs\.|@)\s+/)
           const opponentAbbr = matchupParts[1]?.trim()
@@ -102,8 +154,8 @@ export async function GET(req: NextRequest) {
             player_id: mapped.id,
             team_id: mapped.team_id,
             opponent_id: teamByAbbr[opponentAbbr] ?? null,
-            league_id: 'nba-2024-25',
-            season: '2024-25',
+            league_id: 'nba-2025-26',
+            season: '2025-26',
             game_date: isoDate,
             pts: r.PTS ?? 0,
             reb: r.REB ?? 0,
@@ -120,7 +172,6 @@ export async function GET(req: NextRequest) {
             minutes: r.MIN ?? '0',
           })
         }
-
         await new Promise(r => setTimeout(r, 300))
       } catch (e: any) {
         results.push(`Error on game ${gameId}: ${e.message}`)
