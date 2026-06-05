@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import ClipsTab from '@/components/ClipsTab'
 
 type Team = { id: string; name: string }
 type Game = {
@@ -39,7 +40,7 @@ export default function LeaguePage() {
   const { id } = useParams() as { id: string }
   const [data, setData] = useState<LeagueData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'games' | 'standings'>('standings')
+  const [tab, setTab] = useState<'games' | 'standings' | 'clips'>('standings')
   const [followed, setFollowed] = useState(false)
 
   useEffect(() => {
@@ -107,14 +108,14 @@ export default function LeaguePage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5">
-        {(['standings', 'games'] as const).map(t => (
+        {(['standings', 'games', 'clips'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
               ${tab === t ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/50'}`}
           >
-            {t === 'standings' ? '📊 Standings' : '🏀 Games'}
+            {t === 'standings' ? '📊 Standings' : t === 'games' ? '🏀 Games' : '🎬 Clips'}
           </button>
         ))}
       </div>
@@ -140,7 +141,7 @@ export default function LeaguePage() {
                   <tr key={s.id} className="text-sm">
                     <td className="py-2.5 flex items-center gap-2">
                       {i === 0 && <span className="text-yellow-400 text-xs">👑</span>}
-                      <span className={i === 0 ? 'text-white font-semibold' : 'text-white/60'}>{s.name}</span>
+                      <Link href={`/league/${id}/team/${s.id}`} className={i === 0 ? 'text-white font-semibold active:text-orange-400' : 'text-white/60 active:text-orange-400'}>{s.name}</Link>
                     </td>
                     <td className="text-center text-white/40">{s.gp}</td>
                     <td className="text-center text-green-400 font-bold">{s.w}</td>
@@ -224,6 +225,13 @@ export default function LeaguePage() {
               </Link>
             )
           })}
+        </div>
+      )}
+
+      {/* Clips */}
+      {tab === 'clips' && (
+        <div className="mb-5">
+          <ClipsTab leagueId={id} />
         </div>
       )}
 
