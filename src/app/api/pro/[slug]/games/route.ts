@@ -26,6 +26,9 @@ export async function GET(
         away_team:pro_teams!pro_games_away_team_id_fkey(id, name, abbreviation)
       `)
       .eq('league_id', league.id)
+      .not('home_team_id', 'is', null)
+      .not('away_team_id', 'is', null)
+      .not('home_score', 'is', null)
       .order('game_date', { ascending: false })
       .limit(100)
 
@@ -48,6 +51,9 @@ export async function GET(
         player:pro_players(id, name)
       `)
       .eq('league_id', league.id)
+      .not('home_team_id', 'is', null)
+      .not('away_team_id', 'is', null)
+      .not('home_score', 'is', null)
       .in('game_date', dates)
       .order('pts', { ascending: false })
 
