@@ -41,7 +41,7 @@ export async function GET(
         player:pro_players(id, name)
       `)
       .eq('league_id', league.id)
-      .eq('game_date', game.game_date)
+      .eq('game_id', gameId)
       .in('team_id', [homeTeam.id, awayTeam.id])
       .order('pts', { ascending: false })
 
