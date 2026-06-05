@@ -35,41 +35,33 @@ export async function GET(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // For each game, get top performers from pro_game_stats
-    const gameIds = games?.map(g => {
-      const homeId = (g.home_team as any)?.id
-      const awayId = (g.away_team as any)?.id
-      return { gameId: g.id, gameDate: g.game_date, homeId, awayId }
-    }) ?? []
+    const allGameIds = games?.map(g => g.id) ?? []
 
-    // Fetch player stats for these game dates in one query
-    const dates = [...new Set(games?.map(g => g.game_date))]
+    // Fetch player stats by game_id in one query
     const { data: stats } = await supabase
       .from('pro_game_stats')
       .select(`
-        game_date, team_id, pts, reb, ast, stl, blk, tov,
+        game_id, team_id, pts, reb, ast, stl, blk, tov,
         fgm, fga, three_pm, three_pa, ftm, fta, minutes,
         player:pro_players(id, name)
       `)
       .eq('league_id', league.id)
-      .not('home_team_id', 'is', null)
-      .not('away_team_id', 'is', null)
-      .not('home_score', 'is', null)
-      .in('game_date', dates)
+      .in('game_id', allGameIds)
       .order('pts', { ascending: false })
 
-    // Group stats by date+team
-    const statsByDateTeam: Record<string, any[]> = {}
+    // Group stats by game_id+team_id
+    const statsByGameTeam: Record<string, any[]> = {}
     for (const s of stats ?? []) {
-      const key = `${s.game_date}|${s.team_id}`
-      if (!statsByDateTeam[key]) statsByDateTeam[key] = []
-      statsByDateTeam[key].push(s)
+      const key = `${s.game_id}|${s.team_id}`
+      if (!statsByGameTeam[key]) statsByGameTeam[key] = []
+      statsByGameTeam[key].push(s)
     }
 
     const result = games?.map(g => {
       const homeTeam = g.home_team as any
       const awayTeam = g.away_team as any
-      const homePlayers = statsByDateTeam[`${g.game_date}|${homeTeam?.id}`] ?? []
-      const awayPlayers = statsByDateTeam[`${g.game_date}|${awayTeam?.id}`] ?? []
+      const homePlayers = statsByGameTeam[`${g.id}|${homeTeam?.id}`] ?? []
+      const awayPlayers = statsByGameTeam[`${g.id}|${awayTeam?.id}`] ?? []
 
       return {
         id: g.id,
