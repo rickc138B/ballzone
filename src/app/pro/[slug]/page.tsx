@@ -24,6 +24,7 @@ type PlayerGameStat = {
 }
 
 type Game = {
+  id: string
   game_date: string
   home_team: { id: string; name: string; abbreviation: string }
   away_team: { id: string; name: string; abbreviation: string }
@@ -100,7 +101,7 @@ function BoxScoreTable({ players, teamName, score, won }: {
   )
 }
 
-function GameCard({ game }: { game: Game }) {
+function GameCard({ game, slug }: { game: Game; slug: string }) {
   const [expanded, setExpanded] = useState(false)
   const homeWon = game.home_score > game.away_score
   const dateStr = new Date(game.game_date).toLocaleDateString('en-GB', {
@@ -157,6 +158,13 @@ function GameCard({ game }: { game: Game }) {
             ))}
           </div>
         )}
+        <Link
+          href={`/pro/${slug}/game/${game.id}`}
+          className="block text-center text-xs text-orange-400/50 pb-1 mt-1 active:text-orange-400"
+          onClick={e => e.stopPropagation()}
+        >
+          Full box score →
+        </Link>
       </button>
 
       {/* Expanded box score */}
@@ -310,7 +318,7 @@ export default function ProLeaguePage() {
               </div>
             )}
             {games.map((g, i) => (
-              <GameCard key={`${g.game_date}-${g.home_team.id}`} game={g} />
+              <GameCard key={`${g.game_date}-${g.home_team.id}`} game={g} slug={slug} />
             ))}
           </div>
         )}
