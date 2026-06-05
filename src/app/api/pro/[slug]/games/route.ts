@@ -17,76 +17,85 @@ export async function GET(
 
     if (!league) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Get distinct game dates + team combos — reconstruct "games" from player stats
-    // Group by game_date + team_id + opponent_id
-    const { data: stats, error } = await supabase
-      .from('pro_game_stats')
+    // Get real games with real scores
+    const { data: games, error } = await supabase
+      .from('pro_games')
       .select(`
-        id, game_date, pts, reb, ast, stl, blk, tov, fgm, fga, three_pm, three_pa, ftm, fta, minutes,
-        player:pro_players(id, name),
-        team:pro_teams!pro_game_stats_team_id_fkey(id, name, abbreviation),
-        opponent:pro_teams!pro_game_stats_opponent_id_fkey(id, name, abbreviation)
+        id, game_date, home_score, away_score, status,
+        home_team:pro_teams!pro_games_home_team_id_fkey(id, name, abbreviation),
+        away_team:pro_teams!pro_games_away_team_id_fkey(id, name, abbreviation)
       `)
       .eq('league_id', league.id)
       .order('game_date', { ascending: false })
-      .limit(500)
+      .limit(100)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Group into games: key = game_date|team_id|opponent_id (canonical: sort team ids)
-    const gamesMap: Record<string, any> = {}
+    // For each game, get top performers from pro_game_stats
+    const gameIds = games?.map(g => {
+      const homeId = (g.home_team as any)?.id
+      const awayId = (g.away_team as any)?.id
+      return { gameId: g.id, gameDate: g.game_date, homeId, awayId }
+    }) ?? []
 
-    for (const row of stats ?? []) {
-      const team = row.team as any
-      const opponent = row.opponent as any
-      if (!team || !opponent) continue
+    // Fetch player stats for these game dates in one query
+    const dates = [...new Set(games?.map(g => g.game_date))]
+    const { data: stats } = await supabase
+      .from('pro_game_stats')
+      .select(`
+        game_date, team_id, pts, reb, ast, stl, blk, tov,
+        fgm, fga, three_pm, three_pa, ftm, fta, minutes,
+        player:pro_players(id, name)
+      `)
+      .eq('league_id', league.id)
+      .in('game_date', dates)
+      .order('pts', { ascending: false })
 
-      // Canonical key — same regardless of which team's player we're looking at
-      const ids = [team.id, opponent.id].sort()
-      const key = `${row.game_date}|${ids[0]}|${ids[1]}`
-
-      if (!gamesMap[key]) {
-        gamesMap[key] = {
-          game_date: row.game_date,
-          home_team: team,
-          away_team: opponent,
-          home_players: [],
-          away_players: [],
-          // We'll calculate team totals after
-        }
-      }
-
-      const game = gamesMap[key]
-      const isHome = game.home_team.id === team.id
-      const playerEntry = {
-        id: (row.player as any)?.id,
-        name: (row.player as any)?.name,
-        pts: row.pts, reb: row.reb, ast: row.ast,
-        stl: row.stl, blk: row.blk, tov: row.tov,
-        fgm: row.fgm, fga: row.fga,
-        three_pm: row.three_pm, three_pa: row.three_pa,
-        ftm: row.ftm, fta: row.fta,
-        minutes: row.minutes,
-      }
-
-      if (isHome) game.home_players.push(playerEntry)
-      else game.away_players.push(playerEntry)
+    // Group stats by date+team
+    const statsByDateTeam: Record<string, any[]> = {}
+    for (const s of stats ?? []) {
+      const key = `${s.game_date}|${s.team_id}`
+      if (!statsByDateTeam[key]) statsByDateTeam[key] = []
+      statsByDateTeam[key].push(s)
     }
 
-    // Calculate team totals and sort players by pts
-    const games = Object.values(gamesMap).map((g: any) => {
-      const homeScore = g.home_players.reduce((s: number, p: any) => s + (p.pts ?? 0), 0)
-      const awayScore = g.away_players.reduce((s: number, p: any) => s + (p.pts ?? 0), 0)
-      return {
-        ...g,
-        home_score: homeScore,
-        away_score: awayScore,
-        home_players: g.home_players.sort((a: any, b: any) => b.pts - a.pts),
-        away_players: g.away_players.sort((a: any, b: any) => b.pts - a.pts),
-      }
-    })
+    const result = games?.map(g => {
+      const homeTeam = g.home_team as any
+      const awayTeam = g.away_team as any
+      const homePlayers = statsByDateTeam[`${g.game_date}|${homeTeam?.id}`] ?? []
+      const awayPlayers = statsByDateTeam[`${g.game_date}|${awayTeam?.id}`] ?? []
 
-    return NextResponse.json({ games })
+      return {
+        id: g.id,
+        game_date: g.game_date,
+        home_team: homeTeam,
+        away_team: awayTeam,
+        home_score: g.home_score,
+        away_score: g.away_score,
+        home_players: homePlayers.slice(0, 8).map((p: any) => ({
+          id: p.player?.id,
+          name: p.player?.name,
+          pts: p.pts, reb: p.reb, ast: p.ast,
+          stl: p.stl, blk: p.blk, tov: p.tov,
+          fgm: p.fgm, fga: p.fga,
+          three_pm: p.three_pm, three_pa: p.three_pa,
+          ftm: p.ftm, fta: p.fta,
+          minutes: p.minutes,
+        })),
+        away_players: awayPlayers.slice(0, 8).map((p: any) => ({
+          id: p.player?.id,
+          name: p.player?.name,
+          pts: p.pts, reb: p.reb, ast: p.ast,
+          stl: p.stl, blk: p.blk, tov: p.tov,
+          fgm: p.fgm, fga: p.fga,
+          three_pm: p.three_pm, three_pa: p.three_pa,
+          ftm: p.ftm, fta: p.fta,
+          minutes: p.minutes,
+        })),
+      }
+    }) ?? []
+
+    return NextResponse.json({ games: result })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
