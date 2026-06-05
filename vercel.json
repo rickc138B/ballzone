@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/expire-runs",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/nba-games",
+      "schedule": "0 6 * * *"
     }
   ]
 }
