@@ -28,6 +28,15 @@ type Standing = {
   pts_for: number
   pts_against: number
 }
+type Player = {
+  id: string
+  display_name: string
+  photo_url: string | null
+  team_id: string
+  team_name: string
+  is_claimed: boolean
+}
+
 type LeagueData = {
   league: { id: string; title: string; season: string | null; location_name: string | null
   recap_image_url: string | null
@@ -40,8 +49,9 @@ export default function LeaguePage() {
   const { id } = useParams() as { id: string }
   const [data, setData] = useState<LeagueData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'games' | 'standings' | 'clips'>('standings')
+  const [tab, setTab] = useState<'games' | 'standings' | 'players' | 'clips'>('standings')
   const [followed, setFollowed] = useState(false)
+  const [players, setPlayers] = useState<Player[]>([])
 
   useEffect(() => {
     try {
@@ -67,6 +77,14 @@ export default function LeaguePage() {
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
   }, [id])
+
+  useEffect(() => {
+    if (tab === 'players' && players.length === 0) {
+      fetch(`/api/leagues/${id}/players`)
+        .then(r => r.json())
+        .then(d => setPlayers(Array.isArray(d) ? d : []))
+    }
+  }, [tab, id])
 
   if (loading) return (
     <main className="min-h-dvh flex items-center justify-center">
@@ -108,14 +126,14 @@ export default function LeaguePage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5">
-        {(['standings', 'games', 'clips'] as const).map(t => (
+        {(['standings', 'games', 'players', 'clips'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
               ${tab === t ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/50'}`}
           >
-            {t === 'standings' ? '📊 Standings' : t === 'games' ? '🏀 Games' : '🎬 Clips'}
+            {t === 'standings' ? '📊 Standings' : t === 'games' ? '🏀 Games' : t === 'players' ? '👤 Players' : '🎬 Clips'}
           </button>
         ))}
       </div>
@@ -225,6 +243,39 @@ export default function LeaguePage() {
               </Link>
             )
           })}
+        </div>
+      )}
+
+      {/* Players */}
+      {tab === 'players' && (
+        <div className="mb-5">
+          {players.length === 0 && (
+            <p className="text-white/20 text-sm text-center py-8">No players yet</p>
+          )}
+          {Array.from(new Set(players.map(p => p.team_name))).map(team => (
+            <div key={team} className="mb-4">
+              <p className="text-orange-400 text-xs uppercase tracking-wider font-semibold mb-2">{team}</p>
+              <div className="card overflow-hidden">
+                {players.filter(p => p.team_name === team).map((p, i, arr) => (
+                  <Link key={p.id} href={`/league/${id}/player/${p.id}`}>
+                    <div className={`flex items-center gap-3 px-4 py-3 active:bg-white/5
+                      ${i < arr.length - 1 ? 'border-b border-white/5' : ''}`}>
+                      <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20
+                                      flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {p.photo_url
+                          ? <img src={p.photo_url} alt={p.display_name} className="w-full h-full object-cover" />
+                          : <span className="text-sm">🏀</span>}
+                      </div>
+                      <span className="text-white text-sm font-semibold flex-1">{p.display_name}</span>
+                      {p.is_claimed && (
+                        <span className="text-xs bg-green-500/20 text-green-400 border border-green-500/30 px-1.5 py-0.5 rounded-full">✓</span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import ClipsTab from '@/components/ClipsTab'
 
 type PlayerSeason = {
   id: string
@@ -196,7 +197,7 @@ export default function ProLeaguePage() {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [gamesLoading, setGamesLoading] = useState(false)
-  const [tab, setTab] = useState<'leaders' | 'teams' | 'games'>('leaders')
+  const [tab, setTab] = useState<'leaders' | 'teams' | 'games' | 'clips'>('leaders')
   const [statCat, setStatCat] = useState<StatCat>('pts')
 
   useEffect(() => {
@@ -240,11 +241,11 @@ export default function ProLeaguePage() {
 
       {/* Tabs */}
       <div className="flex gap-2 px-5 pt-4 mb-4">
-        {(['leaders', 'games', 'teams'] as const).map(t => (
+        {(['leaders', 'games', 'teams', 'clips'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
               ${tab === t ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/50'}`}>
-            {t === 'leaders' ? '📊 Leaders' : t === 'games' ? '🏀 Games' : '🏟 Teams'}
+            {t === 'leaders' ? '📊 Leaders' : t === 'games' ? '🏀 Games' : t === 'teams' ? '🏟 Teams' : '🎬 Clips'}
           </button>
         ))}
       </div>
@@ -337,6 +338,13 @@ export default function ProLeaguePage() {
                 </div>
               </Link>
             ))}
+          </div>
+        )}
+
+        {/* Clips */}
+        {tab === 'clips' && (
+          <div className="mb-5">
+            <ClipsTab leagueId={data.league.id} />
           </div>
         )}
       </div>
