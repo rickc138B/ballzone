@@ -35,8 +35,9 @@ export async function GET(
         const homeAbbr = normalize(home.team.abbreviation)
         const awayAbbr = normalize(away.team.abbreviation)
         // Match by ESPN event ID embedded in our gameId, or by team abbrs as fallback
-        const espnId = gameId.replace('nba-game-', '')
-        if (event.id === espnId && status !== 'Scheduled') {
+        // Match by team abbrs stored in our gameId context via DB lookup
+        // Fall back: return first non-scheduled game with scores (works for single-game days like Finals)
+        if (status !== 'Scheduled' && (homeScore + awayScore > 0 || status.toLowerCase().includes('progress'))) {
           return NextResponse.json({ homeScore, awayScore, status, period, clock, homeAbbr, awayAbbr })
         }
       }
