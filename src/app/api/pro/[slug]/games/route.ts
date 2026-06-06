@@ -29,7 +29,7 @@ export async function GET(
       .not('home_team_id', 'is', null)
       .not('away_team_id', 'is', null)
       .order('game_date', { ascending: false })
-      .limit(100)
+      .limit(200)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
