@@ -247,6 +247,59 @@ export async function GET(req: NextRequest) {
       results.push('No stats to upsert')
     }
 
+    // Fan-out notifications to team followers
+    if (proGames.length) {
+      try {
+        const teamIds = [...new Set(proGames.flatMap(g => [g.home_team_id, g.away_team_id]))]
+        const { data: followRows } = await supabase
+          .from('follows')
+          .select('follower_id, target_id')
+          .in('target_id', teamIds)
+          .eq('target_type', 'team')
+
+        if (followRows?.length) {
+          // Get team names for notification text
+          const { data: teamRows } = await supabase
+            .from('pro_teams')
+            .select('id, name, abbreviation')
+            .in('id', teamIds)
+          const teamName: Record<string, string> = {}
+          for (const t of teamRows ?? []) teamName[t.id] = t.abbreviation ?? t.name
+
+          const notifs: any[] = []
+          for (const game of proGames) {
+            const homeAbbr = teamName[game.home_team_id] ?? game.home_team_id
+            const awayAbbr = teamName[game.away_team_id] ?? game.away_team_id
+            const isFinal = game.status?.toLowerCase().includes('final')
+            const title = isFinal
+              ? `${awayAbbr} ${game.away_score} – ${game.home_score} ${homeAbbr} · Final`
+              : `${awayAbbr} vs ${homeAbbr} · ${game.status}`
+            const affected = followRows.filter(f =>
+              f.target_id === game.home_team_id || f.target_id === game.away_team_id
+            )
+            for (const f of affected) {
+              notifs.push({
+                profile_id: f.follower_id,
+                type: isFinal ? 'game_final' : 'game_update',
+                title,
+                body: `${game.game_date}`,
+                data: { gameId: game.id, homeTeamId: game.home_team_id, awayTeamId: game.away_team_id },
+                read: false,
+              })
+            }
+          }
+
+          if (notifs.length) {
+            const { error: notifErr } = await supabase.from('notifications').upsert(notifs, { ignoreDuplicates: false })
+            if (notifErr) results.push(`Notif fan-out error: ${notifErr.message}`)
+            else results.push(`Sent ${notifs.length} notifications to team followers`)
+          }
+        }
+      } catch (e: any) {
+        results.push(`Notif fan-out failed: ${e.message}`)
+      }
+    }
+
     return NextResponse.json({ success: true, results })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
