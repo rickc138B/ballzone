@@ -84,6 +84,11 @@ export async function GET(req: NextRequest) {
     if (hourUTC < 8) targetDate.setDate(targetDate.getDate() - 1)
     const dateStr = formatDate(targetDate)
     const isoDate = targetDate.toISOString().split('T')[0]
+
+    // Also always try yesterday in case of late-finishing games
+    const yesterdayDate = new Date(targetDate)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterdayIso = yesterdayDate.toISOString().split('T')[0]
     const yesterday = targetDate
 
     // Build team map early (needed for ESPN fallback)
@@ -112,7 +117,8 @@ export async function GET(req: NextRequest) {
     if (!gameHeader?.rowSet?.length) {
       results.push('No games from NBA API, trying ESPN fallback')
       const espnIds = await espnFallback(isoDate, supabase, teamByAbbr)
-      results.push(`ESPN fallback: ${espnIds.length} games patched`)
+      const espnYestIds = await espnFallback(yesterdayIso, supabase, teamByAbbr)
+      results.push(`ESPN fallback: ${espnIds.length + espnYestIds.length} games patched`)
       return NextResponse.json({ success: true, results })
     }
 

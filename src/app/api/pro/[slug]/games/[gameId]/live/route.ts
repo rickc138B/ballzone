@@ -11,7 +11,7 @@ export async function GET(
 ) {
   const { gameId } = await params
   try {
-    const dates = [new Date(), new Date(Date.now() - 86400000)].map(d =>
+    const dates = [new Date(), new Date(Date.now() - 86400000), new Date(Date.now() - 172800000)].map(d =>
       d.toISOString().split('T')[0].replace(/-/g, '')
     )
     for (const date of dates) {
