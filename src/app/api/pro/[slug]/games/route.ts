@@ -28,6 +28,7 @@ export async function GET(
       .eq('league_id', league.id)
       .not('home_team_id', 'is', null)
       .not('away_team_id', 'is', null)
+      .gte('game_date', '2026-05-01')
       .order('game_date', { ascending: false })
       .limit(200)
 
