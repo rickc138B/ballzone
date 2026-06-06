@@ -37,6 +37,8 @@ export default function PlayerProfilePage() {
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState('')
   const [claimSuccess, setClaimSuccess] = useState(false)
+  const [following, setFollowing] = useState<boolean | null>(null)
+  const [followLoading, setFollowLoading] = useState(false)
 
   // Photo upload
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -58,6 +60,28 @@ export default function PlayerProfilePage() {
       if (claimed === fp) setIsMine(true)
     })
   }, [leagueId, playerId])
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) return
+    fetch(`/api/follows?target_id=${playerId}&target_type=player`, { headers: { 'x-profile-token': token } })
+      .then(r => r.json()).then(d => setFollowing(d.following ?? false))
+  }, [playerId])
+
+  async function toggleFollow() {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) { window.location.href = '/profile'; return }
+    setFollowLoading(true)
+    try {
+      const res = await fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-profile-token': token },
+        body: JSON.stringify({ target_id: playerId, target_type: 'player' }),
+      })
+      const d = await res.json()
+      setFollowing(d.following)
+    } finally { setFollowLoading(false) }
+  }
 
   useEffect(() => {
     if (data?.player && fingerprint && data.player.claimed_by === fingerprint) {
@@ -182,14 +206,25 @@ export default function PlayerProfilePage() {
             </div>
           </div>
 
-          {!isClaimed && !claimSuccess && (
+          <div className="flex flex-col items-end gap-2">
             <button
-              onClick={() => setShowClaim(!showClaim)}
-              className="text-xs px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white/50 active:bg-white/20"
+              onClick={toggleFollow}
+              disabled={followLoading}
+              className={`text-xs px-3 py-1.5 rounded-xl border transition-all active:scale-95
+                ${following ? 'bg-white/10 border-white/20 text-white/50' : 'bg-orange-500 border-orange-500 text-white'}
+                ${followLoading ? 'opacity-50' : ''}`}
             >
-              Claim
+              {followLoading ? '...' : following ? '✓ Following' : '+ Follow'}
             </button>
-          )}
+            {!isClaimed && !claimSuccess && (
+              <button
+                onClick={() => setShowClaim(!showClaim)}
+                className="text-xs px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white/50 active:bg-white/20"
+              >
+                Claim
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Admin photo panel — for unclaimed players */}
