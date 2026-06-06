@@ -77,8 +77,8 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
       if (navigator.share) {
         await navigator.share({
           title: clip.caption ?? 'Check this clip on Ballzone',
-          text: `🏀 ${clip.caption ?? 'Sick clip'}\n${clip.url}`,
-          url: clip.url,
+          text: `🏀 ${clip.caption ?? 'Sick clip'}`,
+          url: window.location.href,
         })
       } else {
         await navigator.clipboard.writeText(clip.url)

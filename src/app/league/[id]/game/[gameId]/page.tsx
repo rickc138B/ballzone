@@ -417,23 +417,41 @@ export default function LeagueGamePage() {
           )}
           {clips.map(clip => (
             <div key={clip.id} className="card overflow-hidden border-white/5">
-              {clip.embed_html && (
-                <div className="w-full overflow-hidden rounded-t-2xl"
+              {clip.embed_html ? (
+                <div className="w-full overflow-hidden"
                   dangerouslySetInnerHTML={{ __html: clip.embed_html }} />
-              )}
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">{PLATFORM_ICONS[clip.platform] ?? '🔗'}</span>
+              ) : (
                 <a href={clip.url} target="_blank" rel="noopener noreferrer"
-                  className="text-orange-400 text-sm truncate flex-1 active:opacity-70">
-                  {clip.caption || clip.url}
+                  className="flex items-center gap-3 p-4 active:bg-white/5">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl flex-shrink-0">
+                    {PLATFORM_ICONS[clip.platform] ?? '🔗'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-orange-400 text-xs font-semibold mb-0.5">{clip.platform}</p>
+                    <p className="text-white/50 text-xs truncate">{clip.url}</p>
+                  </div>
+                  <span className="text-white/20 text-xs">↗</span>
                 </a>
-                <span className="text-white/20 text-xs flex-shrink-0">↗</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-white/30 text-xs">{clip.added_by}</span>
-                <span className="text-white/20 text-xs">
-                  {new Date(clip.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                </span>
+              )}
+              <div className="px-4 pt-3 pb-2">
+                {clip.caption && <p className="text-white/70 text-sm mb-2">{clip.caption}</p>}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/30 text-xs">{clip.added_by}</span>
+                    <span className="text-white/10 text-xs">·</span>
+                    <span className="text-white/20 text-xs">{new Date(clip.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <a href={clip.url} target="_blank" rel="noopener noreferrer"
+                      className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">
+                      View original ↗
+                    </a>
+                    <button onClick={() => { if (navigator.share) { navigator.share({ title: clip.caption ?? 'Ballzone clip', text: '🏀 ' + (clip.caption ?? 'Sick clip'), url: window.location.href }) } else { navigator.clipboard.writeText(window.location.href) } }}
+                      className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">
+                      📤 Share
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
