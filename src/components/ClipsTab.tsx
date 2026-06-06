@@ -350,8 +350,9 @@ export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; api
         <div className="flex justify-end items-center gap-2 mb-2 flex-wrap">
           {isAdmin
             ? <span className="text-orange-400 text-xs border border-orange-500/30 rounded-lg px-2 py-1">✓ Admin</span>
-            : <button onClick={() => setShowPinEntry(v => vercel --prod)} className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">🔐 Admin</button>
+            : <button onClick={() => setShowPinEntry(v => !v)} className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">🔐 Admin</button>
           }
+          {showPinEntry && !isAdmin && (
             <>
               <input value={adminPin} onChange={e => setAdminPin(e.target.value)}
                 placeholder="PIN" type="password"
