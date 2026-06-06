@@ -122,9 +122,33 @@ export default function GameDetailPage() {
   const [submittingClip, setSubmittingClip] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/pro/${slug}/games/${gameId}`)
+    // Live score polling
+    let pollInterval: ReturnType<typeof setInterval> | null = null
+
+    const loadGame = () => fetch(`/api/pro/${slug}/games/${gameId}`)
       .then(r => r.json())
-      .then(d => { setGame(d.game); setLoading(false) })
+      .then(d => {
+        setGame(d.game)
+        setLoading(false)
+        if (d.game && !d.game.status?.toLowerCase().includes('final')) {
+          if (pollInterval) clearInterval(pollInterval)
+          pollInterval = setInterval(async () => {
+            try {
+              const res = await fetch(`/api/pro/${slug}/games/${gameId}/live`)
+              if (!res.ok) return
+              const live = await res.json()
+              if (live.error) return
+              setGame(prev => prev ? { ...prev, home_score: live.homeScore, away_score: live.awayScore, status: live.status } : prev)
+              if (live.status?.toLowerCase().includes('final') && pollInterval) {
+                clearInterval(pollInterval)
+                loadGame() // reload full box score when final
+              }
+            } catch {}
+          }, 30000)
+        }
+      })
+
+    loadGame()
     fetch(`/api/pro/${slug}/games/${gameId}/react`)
       .then(r => r.json()).then(setReactions)
     fetch(`/api/pro/${slug}/games/${gameId}/comments`)
@@ -135,6 +159,7 @@ export default function GameDetailPage() {
     if (stored) setMyReactions(JSON.parse(stored))
     const name = localStorage.getItem('ballzone:commentName')
     if (name) { setCommentName(name); setClipName(name) }
+    return () => { if (pollInterval) clearInterval(pollInterval) }
   }, [slug, gameId])
 
   async function react(emoji: string) {
