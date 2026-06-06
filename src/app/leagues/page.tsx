@@ -58,6 +58,24 @@ export default function LeaguesPage() {
         <h1 className="text-2xl font-black text-white leading-tight">Organised seasons</h1>
       </div>
 
+      {/* Pro Leagues */}
+      <div className="mb-5">
+        <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">🏀 Pro Leagues</p>
+        <Link href="/pro/nba">
+          <div className="card p-4 border-white/10 active:bg-white/5 transition-colors flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/30
+                            flex items-center justify-center text-lg flex-shrink-0">
+              🏀
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm">NBA</p>
+              <p className="text-white/40 text-xs">Season 2025-26</p>
+            </div>
+            <span className="ml-auto text-white/20 text-sm">→</span>
+          </div>
+        </Link>
+      </div>
+
       <div className="flex gap-2 mb-5">
         {(['following', 'all'] as const).map(t => (
           <button
