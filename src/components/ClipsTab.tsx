@@ -120,10 +120,18 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
               {new Date(clip.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
             </span>
           </div>
-          <a href={clip.url} target="_blank" rel="noopener noreferrer"
-            className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">
-            View original ↗
-          </a>
+          <div className="flex gap-2">
+            <a href={clip.url} target="_blank" rel="noopener noreferrer"
+              className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">
+              View original ↗
+            </a>
+            {isAdmin && (
+              <button onClick={() => deleteClip(clip.id)} disabled={deletingId === clip.id}
+                className="text-red-400 text-xs border border-red-500/30 rounded-lg px-2 py-1 active:bg-red-500/10 disabled:opacity-30">
+                {deletingId === clip.id ? '...' : '🗑'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Reactions */}
@@ -225,6 +233,42 @@ export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; api
   const [userName, setUserName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [adminPin, setAdminPin] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showPinEntry, setShowPinEntry] = useState(false)
+  const [pinError, setPinError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function verifyPin() {
+    const base = apiBase ?? `/api/leagues/${leagueId}`
+    // extract leagueId from apiBase or use leagueId prop
+    const leagueRoute = apiBase
+      ? apiBase.replace('/clips', '').replace(//api/pro/[^/]+/, (m: string) => m)
+      : `/api/leagues/${leagueId}`
+    const verifyUrl = apiBase
+      ? `/api/leagues/${leagueId}/verify-pin`
+      : `/api/leagues/${leagueId}/verify-pin`
+    const res = await fetch(`/api/leagues/${leagueId}/verify-pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: adminPin })
+    })
+    const d = await res.json()
+    if (d.valid) { setIsAdmin(true); setShowPinEntry(false); setPinError('') }
+    else setPinError('Wrong PIN')
+  }
+
+  async function deleteClip(clipId: string) {
+    setDeletingId(clipId)
+    const base = apiBase ?? `/api/leagues/${leagueId}`
+    await fetch(`${base}/clips/${clipId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: adminPin })
+    })
+    setClips(prev => prev.filter(c => c.id !== clipId))
+    setDeletingId(null)
+  }
 
   useEffect(() => {
     const name = localStorage.getItem('ballzone:commentName')
