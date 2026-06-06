@@ -38,8 +38,12 @@ export async function GET(req: NextRequest) {
           const { data: p } = await supabase.from('pro_players').select('name').eq('id', row.target_id).maybeSingle()
           if (p) { name = p.name; href = `/pro/nba/player/${row.target_id}` }
           else {
-            const { data: lp } = await supabase.from('league_players').select('display_name, league_id').eq('id', row.target_id).maybeSingle()
-            if (lp) { name = lp.display_name; href = `/league/${lp.league_id}/player/${row.target_id}` }
+            const { data: lp } = await supabase.from('league_players').select('display_name, league_teams(league_id)').eq('id', row.target_id).maybeSingle()
+            if (lp) {
+              name = lp.display_name
+              const leagueId = (lp.league_teams as any)?.league_id
+              href = leagueId ? `/league/${leagueId}/player/${row.target_id}` : '#'
+            }
           }
           subtitle = 'Player'
         } else if (row.target_type === 'team') {
