@@ -34,8 +34,9 @@ export async function GET(
         const awayScore = parseInt(away.score ?? '0')
         const homeAbbr = normalize(home.team.abbreviation)
         const awayAbbr = normalize(away.team.abbreviation)
-        // Match live/recent games
-        if (status !== 'Scheduled' && (homeScore + awayScore > 0 || status.toLowerCase().includes('progress'))) {
+        // Match by ESPN event ID embedded in our gameId, or by team abbrs as fallback
+        const espnId = gameId.replace('nba-game-', '')
+        if (event.id === espnId && status !== 'Scheduled') {
           return NextResponse.json({ homeScore, awayScore, status, period, clock, homeAbbr, awayAbbr })
         }
       }
