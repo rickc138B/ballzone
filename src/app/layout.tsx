@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import NavDrawer from '@/components/NavDrawer'
+import InstallBanner from '@/components/InstallBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { PostHogPageView } from '@/components/PostHogPageView'
 import { Suspense } from 'react'
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <PostHogPageView />
           </Suspense>
           <NavDrawer />
+      <InstallBanner />
           {children}
         </PostHogProvider>
       </body>
