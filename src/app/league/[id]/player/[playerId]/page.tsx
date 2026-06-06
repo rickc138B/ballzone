@@ -206,7 +206,15 @@ export default function PlayerProfilePage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            {!isClaimed && !claimSuccess && (
+              <button
+                onClick={() => setShowClaim(!showClaim)}
+                className="text-xs px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white/50 active:bg-white/20"
+              >
+                Claim
+              </button>
+            )}
             <button
               onClick={toggleFollow}
               disabled={followLoading}
@@ -216,14 +224,6 @@ export default function PlayerProfilePage() {
             >
               {followLoading ? '...' : following ? '✓ Following' : '+ Follow'}
             </button>
-            {!isClaimed && !claimSuccess && (
-              <button
-                onClick={() => setShowClaim(!showClaim)}
-                className="text-xs px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white/50 active:bg-white/20"
-              >
-                Claim
-              </button>
-            )}
           </div>
         </div>
 

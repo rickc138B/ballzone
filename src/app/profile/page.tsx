@@ -253,6 +253,22 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {followCounts !== null && (
+        <div className="card p-4 mb-4">
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Network</p>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div>
+              <div className="text-2xl font-black text-white">{followCounts.following}</div>
+              <div className="text-white/40 text-xs mt-0.5">Following</div>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-white">{followCounts.followers}</div>
+              <div className="text-white/40 text-xs mt-0.5">Followers</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <button onClick={signOut}
         className="w-full py-3 rounded-2xl font-semibold text-white/30 border border-white/10 text-sm mt-2">
         Sign out
