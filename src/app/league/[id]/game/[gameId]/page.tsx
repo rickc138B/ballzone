@@ -446,7 +446,7 @@ export default function LeagueGamePage() {
                       className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">
                       View original ↗
                     </a>
-                    <button onClick={() => { if (navigator.share) { navigator.share({ title: clip.caption ?? 'Ballzone clip', text: '🏀 ' + (clip.caption ?? 'Sick clip'), url: window.location.href }) } else { navigator.clipboard.writeText(window.location.href) } }}
+                    <button onClick={() => { if (navigator.share) { navigator.share({ title: clip.caption ?? 'Ballzone clip', text: '🏀 ' + (clip.caption ?? 'Sick clip'), url: (process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin) + window.location.pathname }) } else { navigator.clipboard.writeText(window.location.href) } }}
                       className="text-white/20 text-xs border border-white/10 rounded-lg px-2 py-1 active:bg-white/5">
                       📤 Share
                     </button>

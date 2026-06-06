@@ -8,5 +8,8 @@
       "path": "/api/cron/nba-games",
       "schedule": "0 6 * * *"
     }
-  ]
+  ],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://ballzone-woad.vercel.app"
+  }
 }
