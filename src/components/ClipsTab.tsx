@@ -240,14 +240,7 @@ export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; api
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function verifyPin() {
-    const base = apiBase ?? `/api/leagues/${leagueId}`
-    // extract leagueId from apiBase or use leagueId prop
-    const leagueRoute = apiBase
-      ? apiBase.replace('/clips', '').replace(//api/pro/[^/]+/, (m: string) => m)
-      : `/api/leagues/${leagueId}`
-    const verifyUrl = apiBase
-      ? `/api/leagues/${leagueId}/verify-pin`
-      : `/api/leagues/${leagueId}/verify-pin`
+
     const res = await fetch(`/api/leagues/${leagueId}/verify-pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
