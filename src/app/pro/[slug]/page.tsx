@@ -29,8 +29,8 @@ type Game = {
   game_date: string
   home_team: { id: string; name: string; abbreviation: string }
   away_team: { id: string; name: string; abbreviation: string }
-  home_score: number
-  away_score: number
+  home_score: number | null
+  away_score: number | null
   home_players: PlayerGameStat[]
   away_players: PlayerGameStat[]
 }
@@ -104,7 +104,8 @@ function BoxScoreTable({ players, teamName, score, won }: {
 
 function GameCard({ game, slug }: { game: Game; slug: string }) {
   const [expanded, setExpanded] = useState(false)
-  const homeWon = game.home_score > game.away_score
+  const isUpcoming = game.home_score === null || game.away_score === null
+  const homeWon = !isUpcoming && game.home_score > game.away_score
   const dateStr = new Date(game.game_date).toLocaleDateString('en-GB', {
     weekday: 'short', day: 'numeric', month: 'short'
   })
@@ -119,12 +120,13 @@ function GameCard({ game, slug }: { game: Game; slug: string }) {
     <div className="card overflow-hidden">
       {/* Score row */}
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => !isUpcoming && setExpanded(!expanded)}
         className="w-full p-4 text-left active:bg-white/5 transition-colors"
       >
         <div className="flex items-center justify-between mb-3">
           <span className="text-white/20 text-xs">{dateStr}</span>
-          <span className="text-white/20 text-xs">{expanded ? '▲ Hide box score' : '▼ Box score'}</span>
+          {!isUpcoming && <span className="text-white/20 text-xs">{expanded ? '▲ Hide box score' : '▼ Box score'}</span>}
+          {isUpcoming && <span className="text-white/30 text-xs">Upcoming</span>}
         </div>
 
         {/* Teams + scores */}
@@ -135,13 +137,13 @@ function GameCard({ game, slug }: { game: Game; slug: string }) {
           ].map(({ team, score, won }) => (
             <div key={team.id} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {won && <span className="text-yellow-400 text-xs">👑</span>}
+                {won && !isUpcoming && <span className="text-yellow-400 text-xs">👑</span>}
                 <span className={`text-sm font-bold ${won ? 'text-white' : 'text-white/40'}`}>
                   {team.name}
                 </span>
               </div>
               <span className={`text-xl font-black tabular-nums ${won ? 'text-orange-400' : 'text-white/25'}`}>
-                {score}
+                {score ?? '—'}
               </span>
             </div>
           ))}
@@ -159,13 +161,13 @@ function GameCard({ game, slug }: { game: Game; slug: string }) {
             ))}
           </div>
         )}
-        <Link
+        {!isUpcoming && <Link
           href={`/pro/${slug}/game/${game.id}`}
           className="block text-center text-xs text-orange-400/50 pb-1 mt-1 active:text-orange-400"
           onClick={e => e.stopPropagation()}
         >
           Full box score →
-        </Link>
+        </Link>}
       </button>
 
       {/* Expanded box score */}

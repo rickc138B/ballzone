@@ -28,7 +28,6 @@ export async function GET(
       .eq('league_id', league.id)
       .not('home_team_id', 'is', null)
       .not('away_team_id', 'is', null)
-      .not('home_score', 'is', null)
       .order('game_date', { ascending: false })
       .limit(100)
 
