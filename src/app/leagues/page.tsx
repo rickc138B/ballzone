@@ -46,6 +46,15 @@ export default function LeaguesPage() {
       saveFollowed(next)
       return next
     })
+    // Also persist to DB if signed in
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (token) {
+      fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-profile-token': token },
+        body: JSON.stringify({ target_id: id, target_type: 'league' }),
+      }).catch(() => {})
+    }
   }
 
   const followedLeagues = leagues.filter(l => followed.has(l.id))

@@ -103,6 +103,19 @@ export default function ProfilePage() {
     clearProfile(); setStep('unclaimed'); setProfile(null); setStats(null)
   }
 
+  async function openFollowModal(type: 'following' | 'followers') {
+    setFollowModal(type)
+    setFollowList([])
+    setFollowListLoading(true)
+    const token = getProfileToken()
+    const res = await fetch(`/api/profile/follow-list?type=${type}`, {
+      headers: { 'x-profile-token': token }
+    })
+    const d = await res.json()
+    setFollowList(d.items ?? [])
+    setFollowListLoading(false)
+  }
+
   if (step === 'loading') return (
     <main className="min-h-dvh flex items-center justify-center">
       <div className="text-white/40">Loading...</div>
@@ -257,14 +270,14 @@ export default function ProfilePage() {
         <div className="card p-4 mb-4">
           <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Network</p>
           <div className="grid grid-cols-2 gap-3 text-center">
-            <div>
+            <button onClick={() => openFollowModal('following')} className="active:opacity-70">
               <div className="text-2xl font-black text-white">{followCounts.following}</div>
               <div className="text-white/40 text-xs mt-0.5">Following</div>
-            </div>
-            <div>
+            </button>
+            <button onClick={() => openFollowModal('followers')} className="active:opacity-70">
               <div className="text-2xl font-black text-white">{followCounts.followers}</div>
               <div className="text-white/40 text-xs mt-0.5">Followers</div>
-            </div>
+            </button>
           </div>
         </div>
       )}
@@ -273,6 +286,42 @@ export default function ProfilePage() {
         className="w-full py-3 rounded-2xl font-semibold text-white/30 border border-white/10 text-sm mt-2">
         Sign out
       </button>
+
+      {/* Follow modal */}
+      {followModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end justify-center"
+          onClick={() => setFollowModal(null)}>
+          <div className="w-full max-w-lg bg-[#0f0f1a] border border-white/10 rounded-t-2xl p-5 pb-10 max-h-[70vh] flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-black text-lg capitalize">{followModal}</h2>
+              <button onClick={() => setFollowModal(null)} className="text-white/30 text-sm">✕</button>
+            </div>
+            {followListLoading ? (
+              <div className="text-white/30 text-sm py-8 text-center">Loading...</div>
+            ) : followList.length === 0 ? (
+              <div className="text-white/30 text-sm py-8 text-center">Nothing here yet</div>
+            ) : (
+              <div className="overflow-y-auto space-y-2">
+                {followList.map((item: any) => (
+                  <a key={item.id} href={item.href}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white/5 active:bg-white/10">
+                    <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30
+                                    flex items-center justify-center text-base flex-shrink-0">
+                      {item.emoji}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">{item.name}</p>
+                      <p className="text-white/30 text-xs">{item.subtitle}</p>
+                    </div>
+                    <span className="ml-auto text-white/20 text-xs">→</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
