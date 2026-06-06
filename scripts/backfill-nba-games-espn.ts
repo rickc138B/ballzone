@@ -212,8 +212,19 @@ async function main() {
   const games = await fetchGamesForDate(date, teamByAbbr, existingGames ?? [])
    if (!games.length) { console.log(`  ${iso}: no games`); await sleep(300); continue }
 
-   const { error } = await supabase.from("pro_games").upsert(games, { onConflict: "id" })
-   if (error) { console.log(`  ${iso}: upsert error: ${error.message}`); continue }
+   const existingIds = (existingGames ?? []).map(g => g.id)
+   const toInsert = games.filter(g => !existingIds.includes(g.id))
+   const toUpdate = games.filter(g => existingIds.includes(g.id))
+   for (const g of toUpdate) {
+     const { error: ue } = await supabase.from("pro_games")
+       .update({ home_score: g.home_score, away_score: g.away_score, status: g.status })
+       .eq("id", g.id)
+     if (ue) console.log(`  update error ${g.id}: ${ue.message}`)
+   }
+   if (toInsert.length) {
+     const { error } = await supabase.from("pro_games").upsert(toInsert, { onConflict: "id" })
+     if (error) { console.log(`  ${iso}: upsert error: ${error.message}`); continue }
+   }
    totalGames += games.length
 
    const nbaGameIds = games
