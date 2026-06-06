@@ -188,9 +188,37 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
   )
 }
 
+
+function ClipThumb({ clip, onClick }: { clip: Clip; onClick: () => void }) {
+  const hasEmbed = !!clip.embed_html
+  const icon = PLATFORM_ICONS[clip.platform] ?? '🔗'
+  return (
+    <button onClick={onClick}
+      className="relative aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10 active:scale-95 transition-transform">
+      {hasEmbed ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f1a]">
+          <span className="text-3xl">{icon}</span>
+        </div>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f1a]">
+          <span className="text-3xl">{icon}</span>
+        </div>
+      )}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+        <p className="text-white text-xs font-semibold truncate">{clip.caption ?? clip.platform}</p>
+        <p className="text-white/40 text-[10px]">{clip.added_by}</p>
+      </div>
+      <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-xs">
+        {icon}
+      </div>
+    </button>
+  )
+}
+
 export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; apiBase?: string }) {
   const [clips, setClips] = useState<Clip[]>([])
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'grid' | 'list'>('grid')
   const [showAdd, setShowAdd] = useState(false)
   const [url, setUrl] = useState('')
   const [caption, setCaption] = useState('')
@@ -281,9 +309,34 @@ export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; api
         </div>
       )}
 
-      {clips.map(clip => (
-        <ClipCard key={clip.id} clip={clip} leagueId={apiBase ?? leagueId ?? ''}  userName={userName} />
-      ))}
+      {clips.length > 0 && (
+        <div className="flex justify-end mb-1">
+          <div className="flex rounded-xl overflow-hidden border border-white/10">
+            <button onClick={() => setView('grid')}
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors
+                ${view === 'grid' ? 'bg-orange-500 text-white' : 'bg-white/5 text-white/40'}`}>
+              ⊞ Grid
+            </button>
+            <button onClick={() => setView('list')}
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors
+                ${view === 'list' ? 'bg-orange-500 text-white' : 'bg-white/5 text-white/40'}`}>
+              ☰ List
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view === 'grid' ? (
+        <div className="grid grid-cols-3 gap-2">
+          {clips.map(clip => (
+            <ClipThumb key={clip.id} clip={clip} onClick={() => setView('list')} />
+          ))}
+        </div>
+      ) : (
+        clips.map(clip => (
+          <ClipCard key={clip.id} clip={clip} leagueId={apiBase ?? leagueId ?? ''} userName={userName} />
+        ))
+      )}
     </div>
   )
 }
