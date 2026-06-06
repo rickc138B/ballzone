@@ -29,6 +29,23 @@ function fmtPct(val: number) {
 
 export default function ProTeamPage() {
   const { slug, teamId } = useParams() as { slug: string; teamId: string }
+  const [following, setFollowing] = useState<boolean | null>(null)
+  const [followLoading, setFollowLoading] = useState(false)
+
+  async function toggleFollow() {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) { window.location.href = '/profile'; return }
+    setFollowLoading(true)
+    try {
+      const res = await fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-profile-token': token },
+        body: JSON.stringify({ target_id: teamId, target_type: 'team' }),
+      })
+      const d = await res.json()
+      setFollowing(d.following)
+    } finally { setFollowLoading(false) }
+  }
   const [data, setData] = useState<TeamData | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'roster' | 'games'>('roster')
@@ -38,6 +55,13 @@ export default function ProTeamPage() {
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
   }, [slug, teamId])
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) return
+    fetch(`/api/follows?target_id=${teamId}&target_type=team`, { headers: { 'x-profile-token': token } })
+      .then(r => r.json()).then(d => setFollowing(d.following ?? false))
+  }, [teamId])
 
   if (loading) return (
     <main className="min-h-dvh flex items-center justify-center">
@@ -69,6 +93,15 @@ export default function ProTeamPage() {
           <div>
             <h1 className="text-2xl font-black text-white leading-tight">{team.name}</h1>
             <p className="text-orange-400 text-sm font-medium mt-0.5">{team.abbreviation}</p>
+            <button
+              onClick={toggleFollow}
+              disabled={followLoading}
+              className={`mt-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95
+                ${following ? 'bg-white/10 text-white/60 border border-white/20' : 'bg-orange-500 text-white'}
+                ${followLoading ? 'opacity-50' : ''}`}
+            >
+              {followLoading ? '...' : following ? '✓ Following' : '+ Follow'}
+            </button>
           </div>
         </div>
 

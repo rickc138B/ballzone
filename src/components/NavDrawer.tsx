@@ -56,21 +56,6 @@ export default function NavDrawer() {
         <span className="w-2.5 h-0.5 bg-white/60 rounded-full block self-start ml-1" />
       </button>
 
-      <a
-        href="/notifications"
-        aria-label="Notifications"
-        className="fixed top-4 right-4 z-40 w-10 h-10 flex items-center justify-center
-                   rounded-xl bg-white/10 border border-white/10 backdrop-blur-sm active:scale-95 transition-transform relative"
-      >
-        <span className="text-lg">🔔</span>
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
-                           bg-orange-500 rounded-full text-white text-[10px] font-bold
-                           flex items-center justify-center">
-            {unread > 9 ? '9+' : unread}
-          </span>
-        )}
-      </a>
 
       {open && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />

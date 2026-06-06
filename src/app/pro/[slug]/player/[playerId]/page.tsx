@@ -38,6 +38,23 @@ function fmtPct(val: number) {
 
 export default function ProPlayerPage() {
   const { slug, playerId } = useParams() as { slug: string; playerId: string }
+  const [following, setFollowing] = useState<boolean | null>(null)
+  const [followLoading, setFollowLoading] = useState(false)
+
+  async function toggleFollow() {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) { window.location.href = '/profile'; return }
+    setFollowLoading(true)
+    try {
+      const res = await fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-profile-token': token },
+        body: JSON.stringify({ target_id: playerId, target_type: 'player' }),
+      })
+      const d = await res.json()
+      setFollowing(d.following)
+    } finally { setFollowLoading(false) }
+  }
   const [data, setData] = useState<PlayerData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -46,6 +63,13 @@ export default function ProPlayerPage() {
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
   }, [slug, playerId])
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) return
+    fetch(`/api/follows?target_id=${playerId}&target_type=player`, { headers: { 'x-profile-token': token } })
+      .then(r => r.json()).then(d => setFollowing(d.following ?? false))
+  }, [playerId])
 
   if (loading) return (
     <main className="min-h-dvh flex items-center justify-center">
@@ -82,6 +106,15 @@ export default function ProPlayerPage() {
             {player.nationality && (
               <p className="text-white/20 text-xs mt-0.5">{player.nationality}</p>
             )}
+            <button
+              onClick={toggleFollow}
+              disabled={followLoading}
+              className={`mt-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95
+                ${following ? 'bg-white/10 text-white/60 border border-white/20' : 'bg-orange-500 text-white'}
+                ${followLoading ? 'opacity-50' : ''}`}
+            >
+              {followLoading ? '...' : following ? '✓ Following' : '+ Follow'}
+            </button>
           </div>
         </div>
 

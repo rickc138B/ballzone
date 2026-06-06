@@ -195,6 +195,23 @@ function GameCard({ game, slug }: { game: Game; slug: string }) {
 
 export default function ProLeaguePage() {
   const { slug } = useParams() as { slug: string }
+  const [following, setFollowing] = useState<boolean | null>(null)
+  const [followLoading, setFollowLoading] = useState(false)
+
+  async function toggleFollow(targetId: string, targetType: string) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('bz_profile_token') : null
+    if (!token) { window.location.href = '/profile'; return }
+    setFollowLoading(true)
+    try {
+      const res = await fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-profile-token': token },
+        body: JSON.stringify({ target_id: targetId, target_type: targetType }),
+      })
+      const d = await res.json()
+      setFollowing(d.following)
+    } finally { setFollowLoading(false) }
+  }
   const [data, setData] = useState<ProLeagueData | null>(null)
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
@@ -239,6 +256,15 @@ export default function ProLeaguePage() {
         <p className="text-orange-400 text-xs uppercase tracking-wider font-semibold mb-1">🏀 Pro League</p>
         <h1 className="text-3xl font-black text-white">{league.name}</h1>
         <p className="text-white/30 text-sm mt-0.5">Season {league.season}</p>
+        <button
+          onClick={() => toggleFollow(slug, 'league')}
+          disabled={followLoading}
+          className={`mt-3 px-4 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95
+            ${following ? 'bg-white/10 text-white/60 border border-white/20' : 'bg-orange-500 text-white'}
+            ${followLoading ? 'opacity-50' : ''}`}
+        >
+          {followLoading ? '...' : following ? '✓ Following' : '+ Follow'}
+        </button>
       </div>
 
       {/* Tabs */}
