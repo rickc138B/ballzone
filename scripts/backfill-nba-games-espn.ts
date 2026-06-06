@@ -146,8 +146,13 @@ async function fetchGamesForDate(date: Date, teamByAbbr: Record<string, string>,
      const homeScore = parseInt(home.score ?? "0")
      const awayScore = parseInt(away.score ?? "0")
      if (homeScore === 0 && awayScore === 0) continue
+     const existingGame = existingGames.find(g =>
+       g.home_team_id === homeTeamId &&
+       g.away_team_id === awayTeamId &&
+       g.game_date === iso
+     )
      games.push({
-       id: `nba-espn-${event.id}`,
+       id: existingGame?.id ?? `nba-espn-${event.id}`,
        league_id: "nba-2025-26",
        game_date: iso,
        season: "2025-26",
