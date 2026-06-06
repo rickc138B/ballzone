@@ -26,7 +26,7 @@ export default function LeagueGamePage() {
   const [loading, setLoading] = useState(true)
   const [activeTeam, setActiveTeam] = useState<'home' | 'away'>('home')
   const [tab, setTab] = useState<'box' | 'comments' | 'clips'>('box')
-  const [clips, setClips] = useState<{id:string;url:string;platform:string;caption:string|null;added_by:string;created_at:string}[]>([])
+  const [clips, setClips] = useState<{id:string;url:string;platform:string;embed_html:string|null;caption:string|null;added_by:string;created_at:string}[]>([])
   const [clipUrl, setClipUrl] = useState('')
   const [clipCaption, setClipCaption] = useState('')
   const [clipName, setClipName] = useState('')
@@ -416,7 +416,11 @@ export default function LeagueGamePage() {
             </div>
           )}
           {clips.map(clip => (
-            <div key={clip.id} className="card p-4 border-white/5">
+            <div key={clip.id} className="card overflow-hidden border-white/5">
+              {clip.embed_html && (
+                <div className="w-full overflow-hidden rounded-t-2xl"
+                  dangerouslySetInnerHTML={{ __html: clip.embed_html }} />
+              )}
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">{PLATFORM_ICONS[clip.platform] ?? '🔗'}</span>
                 <a href={clip.url} target="_blank" rel="noopener noreferrer"
