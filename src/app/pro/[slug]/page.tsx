@@ -176,14 +176,14 @@ function GameCard({ game, slug }: { game: Game; slug: string }) {
           <BoxScoreTable
             players={game.home_players}
             teamName={game.home_team.name}
-            score={game.home_score}
+            score={game.home_score ?? 0}
             won={homeWon}
           />
           <div className="border-t border-white/10 pt-4">
             <BoxScoreTable
               players={game.away_players}
               teamName={game.away_team.name}
-              score={game.away_score}
+              score={game.away_score ?? 0}
               won={!homeWon}
             />
           </div>
