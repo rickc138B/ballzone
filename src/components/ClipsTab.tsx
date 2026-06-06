@@ -24,7 +24,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   tiktok: 'TikTok', instagram: 'Instagram', twitter: 'Twitter/X', youtube: 'YouTube', other: 'Link',
 }
 
-function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; userName: string }) {
+function ClipCard({ clip, leagueId, userName, isAdmin, onDelete, deletingId }: { clip: Clip; leagueId: string; userName: string; isAdmin: boolean; onDelete: (id: string) => void; deletingId: string | null }) {
   const [reactions, setReactions] = useState<Record<string, number>>({})
   const [myReactions, setMyReactions] = useState<Record<string, boolean>>({})
   const [comments, setComments] = useState<Comment[]>([])
@@ -126,7 +126,7 @@ function ClipCard({ clip, leagueId, userName }: { clip: Clip; leagueId: string; 
               View original ↗
             </a>
             {isAdmin && (
-              <button onClick={() => deleteClip(clip.id)} disabled={deletingId === clip.id}
+              <button onClick={() => onDelete(clip.id)} disabled={deletingId === clip.id}
                 className="text-red-400 text-xs border border-red-500/30 rounded-lg px-2 py-1 active:bg-red-500/10 disabled:opacity-30">
                 {deletingId === clip.id ? '...' : '🗑'}
               </button>
