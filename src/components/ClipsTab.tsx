@@ -362,7 +362,8 @@ export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; api
           )}
           {pinError && <span className="text-red-400 text-xs">{pinError}</span>}
         </div>
-        <div className="flex justify-end mb-1">
+      )}
+      <div className="flex justify-end mb-1">
           <div className="flex rounded-xl overflow-hidden border border-white/10">
             <button onClick={() => setView('grid')}
               className={`px-3 py-1.5 text-xs font-semibold transition-colors
