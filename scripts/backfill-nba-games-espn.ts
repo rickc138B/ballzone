@@ -61,7 +61,7 @@ type GameRow = {
  status: string
 }
 
-async function fetchGamesForDate(date: Date, teamByAbbr: Record<string, string>): Promise<GameRow[]> {
+async function fetchGamesForDate(date: Date, teamByAbbr: Record<string, string>, existingGames: {id: string, home_team_id: string, away_team_id: string, game_date: string}[] = []): Promise<GameRow[]> {
  const iso = isoDate(date)
 
  try {
@@ -198,7 +198,13 @@ async function main() {
 
  for (const date of dates) {
    const iso = isoDate(date)
-   const games = await fetchGamesForDate(date, teamByAbbr)
+   const iso2 = isoDate(date)
+  const { data: existingGames } = await supabase
+    .from('pro_games')
+    .select('id, home_team_id, away_team_id, game_date')
+    .eq('game_date', iso2)
+    .eq('league_id', 'nba-2025-26')
+  const games = await fetchGamesForDate(date, teamByAbbr, existingGames ?? [])
    if (!games.length) { console.log(`  ${iso}: no games`); await sleep(300); continue }
 
    const { error } = await supabase.from("pro_games").upsert(games, { onConflict: "id" })
@@ -237,6 +243,7 @@ async function main() {
            league_id: "nba-2025-26",
            season: "2025-26",
            game_date: iso,
+           game_id: `nba-game-${gameId}`,
            pts: r.PTS ?? 0, reb: r.REB ?? 0, ast: r.AST ?? 0,
            stl: r.STL ?? 0, blk: r.BLK ?? 0, tov: r.TO ?? 0,
            fgm: r.FGM ?? 0, fga: r.FGA ?? 0,
