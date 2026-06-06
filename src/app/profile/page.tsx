@@ -29,6 +29,9 @@ export default function ProfilePage() {
   const [editingName, setEditingName] = useState(false)
  const [isClaiming, setIsClaiming] = useState(false)
  const [followCounts, setFollowCounts] = useState<{ following: number; followers: number } | null>(null)
+  const [followModal, setFollowModal] = useState<'following' | 'followers' | null>(null)
+  const [followList, setFollowList] = useState<any[]>([])
+  const [followListLoading, setFollowListLoading] = useState(false)
 
   useEffect(() => {
     const claiming = typeof window !== 'undefined' && !!localStorage.getItem('bz_participant_id')
