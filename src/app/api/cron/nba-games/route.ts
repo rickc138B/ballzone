@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 
 const NBA_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-  'Referer': 'https://www.nba.com',
-  'Accept': 'application/json',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Referer': 'https://www.nba.com/',
+  'Origin': 'https://www.nba.com',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'x-nba-stats-origin': 'stats',
+  'x-nba-stats-token': 'true',
+  'Connection': 'keep-alive',
 }
 
 function formatDate(d: Date) {
@@ -16,6 +21,52 @@ function formatDate(d: Date) {
 
 const teamIdFromExternal = (extId: string) => `nba-team-${extId}`
 
+const ESPN_ABBR_MAP: Record<string, string> = {
+  'NY': 'NYK', 'GS': 'GSW', 'SA': 'SAS',
+  'NO': 'NOP', 'UTH': 'UTA', 'UTAH': 'UTA',
+}
+const normalizeAbbr = (a: string) => ESPN_ABBR_MAP[a] ?? a
+
+async function espnFallback(isoDate: string, supabase: any, teamByAbbr: Record<string, string>) {
+  const fmt = isoDate.replace(/-/g, '')
+  const res = await fetch(
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${fmt}`,
+    { signal: AbortSignal.timeout(8000) }
+  )
+  if (!res.ok) return []
+  const data = await res.json()
+  const games = []
+  const { data: existingGames } = await supabase
+    .from('pro_games')
+    .select('id, home_team_id, away_team_id')
+    .eq('game_date', isoDate)
+    .eq('league_id', 'nba-2025-26')
+
+  for (const event of data.events ?? []) {
+    const comp = event.competitions?.[0]
+    if (!comp) continue
+    const home = comp.competitors?.find((c: any) => c.homeAway === 'home')
+    const away = comp.competitors?.find((c: any) => c.homeAway === 'away')
+    if (!home || !away) continue
+    const homeTeamId = teamByAbbr[normalizeAbbr(home.team.abbreviation)]
+    const awayTeamId = teamByAbbr[normalizeAbbr(away.team.abbreviation)]
+    if (!homeTeamId || !awayTeamId) continue
+    const homeScore = parseInt(home.score ?? '0')
+    const awayScore = parseInt(away.score ?? '0')
+    if (homeScore === 0 && awayScore === 0) continue
+    const existing = (existingGames ?? []).find((g: any) =>
+      g.home_team_id === homeTeamId && g.away_team_id === awayTeamId
+    )
+    if (existing) {
+      await supabase.from('pro_games')
+        .update({ home_score: homeScore, away_score: awayScore, status: comp.status?.type?.description ?? 'Final' })
+        .eq('id', existing.id)
+      games.push(existing.id.replace('nba-game-', ''))
+    }
+  }
+  return games
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -26,10 +77,25 @@ export async function GET(req: NextRequest) {
   const results: string[] = []
 
   try {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const dateStr = formatDate(yesterday)
-    const isoDate = yesterday.toISOString().split('T')[0]
+    // Check both yesterday and today (late games finishing near midnight ET)
+    const targetDate = new Date()
+    const hourUTC = targetDate.getUTCHours()
+    // Before 8am UTC (4am ET), yesterday's late games may not be posted yet — check yesterday
+    if (hourUTC < 8) targetDate.setDate(targetDate.getDate() - 1)
+    const dateStr = formatDate(targetDate)
+    const isoDate = targetDate.toISOString().split('T')[0]
+    const yesterday = targetDate
+
+    // Build team map early (needed for ESPN fallback)
+    const { data: teams } = await supabase
+      .from('pro_teams')
+      .select('id, abbreviation')
+      .eq('league_id', 'nba-2025-26')
+
+    const teamByAbbr: Record<string, string> = {}
+    for (const t of teams ?? []) {
+      if (t.abbreviation) teamByAbbr[t.abbreviation] = t.id
+    }
 
     const scoreboardRes = await fetch(
       `https://stats.nba.com/stats/scoreboardV2?DayOffset=0&LeagueID=00&gameDate=${dateStr}`,
@@ -44,7 +110,10 @@ export async function GET(req: NextRequest) {
     const lineScore = scoreboardData.resultSets?.find((r: any) => r.name === 'LineScore')
 
     if (!gameHeader?.rowSet?.length) {
-      return NextResponse.json({ success: true, results: ['No games yesterday'] })
+      results.push('No games from NBA API, trying ESPN fallback')
+      const espnIds = await espnFallback(isoDate, supabase, teamByAbbr)
+      results.push(`ESPN fallback: ${espnIds.length} games patched`)
+      return NextResponse.json({ success: true, results })
     }
 
     // Build scores map from LineScore
@@ -112,16 +181,6 @@ export async function GET(req: NextRequest) {
     const playerMap: Record<string, { id: string; team_id: string }> = {}
     for (const p of players ?? []) {
       if (p.external_id) playerMap[p.external_id] = { id: p.id, team_id: p.current_team_id }
-    }
-
-    const { data: teams } = await supabase
-      .from('pro_teams')
-      .select('id, abbreviation')
-      .eq('league_id', 'nba-2025-26')
-
-    const teamByAbbr: Record<string, string> = {}
-    for (const t of teams ?? []) {
-      if (t.abbreviation) teamByAbbr[t.abbreviation] = t.id
     }
 
     const allStats: any[] = []
