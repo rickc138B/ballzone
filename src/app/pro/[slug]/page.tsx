@@ -105,7 +105,7 @@ function BoxScoreTable({ players, teamName, score, won }: {
 function GameCard({ game, slug }: { game: Game; slug: string }) {
   const [expanded, setExpanded] = useState(false)
   const isUpcoming = game.home_score === null || game.away_score === null
-  const homeWon = !isUpcoming && game.home_score > game.away_score
+  const homeWon = !isUpcoming && (game.home_score ?? 0) > (game.away_score ?? 0)
   const dateStr = new Date(game.game_date).toLocaleDateString('en-GB', {
     weekday: 'short', day: 'numeric', month: 'short'
   })
