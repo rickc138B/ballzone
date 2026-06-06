@@ -371,7 +371,7 @@ export default function ClipsTab({ leagueId, apiBase }: { leagueId?: string; api
         </div>
       ) : (
         clips.map(clip => (
-          <ClipCard key={clip.id} clip={clip} leagueId={apiBase ?? leagueId ?? ''} userName={userName} />
+          <ClipCard key={clip.id} clip={clip} leagueId={apiBase ?? leagueId ?? ''} userName={userName} isAdmin={isAdmin} onDelete={deleteClip} deletingId={deletingId} />
         ))
       )}
     </div>
