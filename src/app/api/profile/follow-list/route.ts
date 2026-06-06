@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const profile_id = session.profile_id
-  const type = new URL(req.url).searchParams.get('type') // 'following' | 'followers'
+  const type = new URL(req.url).searchParams.get('type')
 
   if (type === 'following') {
     const { data: rows } = await supabase
@@ -29,39 +29,31 @@ export async function GET(req: NextRequest) {
       .eq('follower_id', profile_id)
       .order('created_at', { ascending: false })
 
-    // Resolve names
     const items = await Promise.all((rows ?? []).map(async row => {
       let name = row.target_id
       let subtitle = row.target_type
       let href = '#'
-
-      if (row.target_type === 'player') {
-        const { data: p } = await supabase.from('pro_players').select('name').eq('id', row.target_id).single()
-          .catch(() => ({ data: null }))
-        if (!p) {
-          // try league player
-          const { data: lp } = await supabase.from('league_players').select('display_name, league_id').eq('id', row.target_id).single()
-            .catch(() => ({ data: null }))
-          if (lp) { name = lp.display_name; href = `/league/${lp.league_id}/player/${row.target_id}` }
-        } else {
-          name = p.name; href = `/pro/nba/player/${row.target_id}`
+      try {
+        if (row.target_type === 'player') {
+          const { data: p } = await supabase.from('pro_players').select('name').eq('id', row.target_id).maybeSingle()
+          if (p) { name = p.name; href = `/pro/nba/player/${row.target_id}` }
+          else {
+            const { data: lp } = await supabase.from('league_players').select('display_name, league_id').eq('id', row.target_id).maybeSingle()
+            if (lp) { name = lp.display_name; href = `/league/${lp.league_id}/player/${row.target_id}` }
+          }
+          subtitle = 'Player'
+        } else if (row.target_type === 'team') {
+          const { data: t } = await supabase.from('pro_teams').select('name').eq('id', row.target_id).maybeSingle()
+          if (t) { name = t.name; href = `/pro/nba/team/${row.target_id}` }
+          subtitle = 'Team'
+        } else if (row.target_type === 'league') {
+          const { data: l } = await supabase.from('leagues').select('title').eq('id', row.target_id).maybeSingle()
+          if (l) { name = l.title; href = `/league/${row.target_id}` }
+          subtitle = 'League'
         }
-        subtitle = 'Player'
-      } else if (row.target_type === 'team') {
-        const { data: t } = await supabase.from('pro_teams').select('name').eq('id', row.target_id).single()
-          .catch(() => ({ data: null }))
-        if (t) { name = t.name; href = `/pro/nba/team/${row.target_id}` }
-        subtitle = 'Team'
-      } else if (row.target_type === 'league') {
-        const { data: l } = await supabase.from('leagues').select('title').eq('id', row.target_id).single()
-          .catch(() => ({ data: null }))
-        if (l) { name = l.title; href = `/league/${row.target_id}` }
-        subtitle = 'League'
-      }
-
+      } catch {}
       return { id: row.target_id, name, subtitle, href, emoji: EMOJI[row.target_type] ?? '📌' }
     }))
-
     return NextResponse.json({ items })
   }
 
@@ -72,19 +64,14 @@ export async function GET(req: NextRequest) {
       .eq('target_id', profile_id)
       .eq('target_type', 'user')
       .order('created_at', { ascending: false })
-
     const items = await Promise.all((rows ?? []).map(async row => {
-      const { data: p } = await supabase.from('profiles').select('display_name, email').eq('id', row.follower_id).single()
-        .catch(() => ({ data: null }))
+      const { data: p } = await supabase.from('profiles').select('display_name, email').eq('id', row.follower_id).maybeSingle()
       return {
         id: row.follower_id,
         name: p?.display_name ?? p?.email ?? 'Unknown',
-        subtitle: 'User',
-        href: '#',
-        emoji: '👤',
+        subtitle: 'User', href: '#', emoji: '👤',
       }
     }))
-
     return NextResponse.json({ items })
   }
 
