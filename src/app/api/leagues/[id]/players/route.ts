@@ -19,7 +19,7 @@ export async function GET(
 
     const { data: players, error } = await supabase
       .from('league_players')
-      .select('id, display_name, photo_url, profile_id, league_team_id')
+      .select('id, display_name, photo_url, claimed_by, league_team_id')
       .in('league_team_id', teamIds.length ? teamIds : ['none'])
       .order('display_name')
 
@@ -34,7 +34,7 @@ export async function GET(
         photo_url: p.photo_url ?? null,
         team_id: p.league_team_id,
         team_name: teamMap[p.league_team_id] ?? 'Unknown',
-        is_claimed: !!p.profile_id,
+        is_claimed: !!p.claimed_by,
       }))
     )
   } catch (err) {
