@@ -27,7 +27,8 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [editingName, setEditingName] = useState(false)
-  const [isClaiming, setIsClaiming] = useState(false)
+ const [isClaiming, setIsClaiming] = useState(false)
+ const [followCounts, setFollowCounts] = useState<{ following: number; followers: number } | null>(null)
 
   useEffect(() => {
     const claiming = typeof window !== 'undefined' && !!localStorage.getItem('bz_participant_id')
@@ -45,7 +46,11 @@ export default function ProfilePage() {
     setProfile(data); setStats(data.stats)
     setDisplayName(data.display_name ?? '')
     setStep('claimed')
-  }
+   // Fetch follow counts
+   const token = getProfileToken()
+   fetch('/api/profile/follow-counts', { headers: { 'x-profile-token': token } })
+     .then(r => r.json()).then(d => setFollowCounts(d))
+ }
 
   async function requestOtp() {
     if (!email.trim() || !email.includes('@')) { setError('Enter a valid email'); return }
