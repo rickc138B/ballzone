@@ -22,7 +22,7 @@ export default function GamePage() {
     }
   }, [runId])
 
-  const { state, actions } = useGameSession(runId, shareToken)
+  const { state, actions, fetchGame } = useGameSession(runId, shareToken)
   const { game, teamA, teamB, scoreEvents } = state
 
   const [pointSelector, setPointSelector] = useState<'a' | 'b' | null>(null)
@@ -189,17 +189,11 @@ export default function GamePage() {
       })
     }
 
-    // Small delay to allow realtime to pick up the new game
-    await new Promise(r => setTimeout(r, 1000))
+    // Explicitly fetch the new game instead of waiting for realtime
+    await fetchGame()
     setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
-    // Fallback: if game never arrives via realtime, reset after 4s
-    setTimeout(() => {
-      if (setupJustCompleted.current) {
-        setupJustCompleted.current = false
-      }
-    }, 4000)
   }
 
   async function broadcastReaction(emoji: string) {

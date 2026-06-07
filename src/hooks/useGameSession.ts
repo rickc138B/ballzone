@@ -186,5 +186,5 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     }).catch(() => {})
   }, [state.game, shareToken])
 
-  return { state, actions: { addScore, undo, flagDispute, resolveDispute, startGame, endGame } }
+  return { state, actions: { addScore, undo, flagDispute, resolveDispute, startGame, endGame }, fetchGame }
 }
