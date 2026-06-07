@@ -89,10 +89,11 @@ export default function GamePage() {
   }, [game?.id])
 
   useEffect(() => {
-    if (!state.loading && (!game || game.status === 'complete')) setNeedsSetup(true)
+    if (!state.loading && !settingUp && (!game || game.status === 'complete')) setNeedsSetup(true)
+    if (!state.loading && game && game.status !== 'complete') setNeedsSetup(false)
     if (teamA?.name) setTeamAName(teamA.name)
     if (teamB?.name) setTeamBName(teamB.name)
-  }, [state.loading, game, teamA, teamB])
+  }, [state.loading, game, teamA, teamB, settingUp])
 
   async function saveAttribution() {
     if (savingAttribution) return
