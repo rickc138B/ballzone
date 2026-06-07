@@ -518,7 +518,7 @@ export default function RunPage() {
             <a href={`/run/${runId}/edit`} className="btn-secondary text-sm py-2.5 block text-center">
               ✏️ Edit Run
             </a>
-            <a href={`/run/${runId}/game`} className="btn-secondary text-sm py-2.5 block text-center">
+            <a href={`/run/${runId}/game${run?.share_token ? `?token=${run.share_token}` : ''}`} className="btn-secondary text-sm py-2.5 block text-center">
               🏀 Keep Score
             </a>
             <a href={`/run/${runId}/backfill`} className="btn-secondary text-sm py-2.5 block text-center">
