@@ -161,6 +161,8 @@ export default function GamePage() {
       })
     }
 
+    // Small delay to allow realtime to pick up the new game
+    await new Promise(r => setTimeout(r, 1000))
     setNeedsSetup(false)
     setSettingUp(false)
   }
