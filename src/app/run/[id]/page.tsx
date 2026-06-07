@@ -222,7 +222,8 @@ export default function RunPage() {
 
   function copyLink() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
-    navigator.clipboard.writeText(`${appUrl}/run/${runId}`)
+    const token = run?.share_token ? `?token=${run.share_token}` : ''
+    navigator.clipboard.writeText(`${appUrl}/run/${runId}${token}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

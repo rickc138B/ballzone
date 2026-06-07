@@ -81,10 +81,16 @@ export function saveParticipantId(id: string) {
 
 // Check if this organizer owns a specific run
 export function isOrganizerOfRun(runId: string): boolean {
+  if (typeof window === 'undefined') return false
+  const urlToken = new URLSearchParams(window.location.search).get('token')
+  if (urlToken) return true
   return getOrganizerRuns().some(r => r.run_id === runId)
 }
 
 export function getShareToken(runId: string): string | null {
+  if (typeof window === 'undefined') return null
+  const urlToken = new URLSearchParams(window.location.search).get('token')
+  if (urlToken) return urlToken
   return getOrganizerRuns().find(r => r.run_id === runId)?.share_token ?? null
 }
 
