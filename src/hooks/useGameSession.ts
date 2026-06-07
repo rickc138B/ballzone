@@ -115,7 +115,8 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       scored_by_player_id: scorerParticipantId ?? null,
       scorer_name: scorerName ?? null,
     })
-  }, [state.game])
+    await fetchGame()
+  }, [state.game, fetchGame])
 
   const undo = useCallback(async () => {
     if (!state.game) return
