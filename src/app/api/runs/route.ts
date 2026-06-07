@@ -82,3 +82,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const supabase = createServiceClient()
+    const profileToken = req.headers.get('x-profile-token')
+    if (!profileToken) return NextResponse.json({ runs: [] })
+
+    const { createHash } = await import('crypto')
+    const tokenHash = createHash('sha256').update(profileToken).digest('hex')
+
+    const { data: session } = await supabase
+      .from('profile_sessions')
+      .select('profile_id')
+      .eq('token_hash', tokenHash)
+      .single()
+
+    if (!session?.profile_id) return NextResponse.json({ runs: [] })
+
+    const { data: organizers } = await supabase
+      .from('organizers')
+      .select('id')
+      .eq('profile_id', session.profile_id)
+
+    const orgIds = (organizers ?? []).map(o => o.id)
+    if (!orgIds.length) return NextResponse.json({ runs: [] })
+
+    const { data: runs } = await supabase
+      .from('runs')
+      .select('id, title, run_date, run_time, location_name, status, share_token, players_needed')
+      .in('organizer_id', orgIds)
+      .order('run_date', { ascending: false })
+      .limit(20)
+
+    return NextResponse.json({ runs: runs ?? [] })
+  } catch (e) {
+    return NextResponse.json({ runs: [] })
+  }
+}

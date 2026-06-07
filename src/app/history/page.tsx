@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getOrganizerRuns, type OrganizerRunRecord } from '@/lib/session-token'
+import { getOrganizerRuns, getProfileToken, type OrganizerRunRecord } from '@/lib/session-token'
 import { formatRunDate, formatRunTime } from '@/lib/utils'
 
 interface RunWithCounts extends OrganizerRunRecord {
@@ -16,28 +16,63 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const stored = getOrganizerRuns()
-    if (stored.length === 0) { setLoading(false); return }
-
-    setRuns(stored.map(r => ({ ...r, loading: true })))
-    setLoading(false)
-
-    // Fetch live counts for each run
-    stored.forEach(async (r) => {
-      try {
-        const res = await fetch(`/api/runs/${r.run_id}`)
-        if (!res.ok) return
-        const data = await res.json()
-        setRuns(prev => prev.map(pr =>
-          pr.run_id === r.run_id
-            ? { ...pr, counts: data.counts, status: data.status, loading: false }
-            : pr
-        ))
-      } catch {
-        setRuns(prev => prev.map(pr =>
-          pr.run_id === r.run_id ? { ...pr, loading: false } : pr
-        ))
+    async function loadRuns() {
+      const profileToken = getProfileToken()
+      if (profileToken) {
+        const res = await fetch('/api/runs', {
+          headers: { 'x-profile-token': profileToken }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.runs?.length) {
+            const mapped = data.runs.map((r: any) => ({
+              run_id: r.id,
+              share_token: r.share_token,
+              title: r.title,
+              location_name: r.location_name,
+              run_time: r.run_time,
+              run_date: r.run_date,
+              created_at: r.created_at ?? '',
+              status: r.status,
+              loading: true,
+            }))
+            setRuns(mapped)
+            setLoading(false)
+            mapped.forEach(async (r: any) => {
+              try {
+                const res = await fetch(`/api/runs/${r.run_id}`)
+                if (!res.ok) return
+                const d = await res.json()
+                setRuns(prev => prev.map(pr =>
+                  pr.run_id === r.run_id ? { ...pr, counts: d.counts, status: d.status, loading: false } : pr
+                ))
+              } catch {}
+            })
+            return
+          }
+        }
       }
+
+      // fallback to localStorage
+      const stored = getOrganizerRuns()
+      if (stored.length === 0) { setLoading(false); return }
+      setRuns(stored.map(r => ({ ...r, loading: true })))
+      setLoading(false)
+      stored.forEach(async (r) => {
+        try {
+          const res = await fetch(`/api/runs/${r.run_id}`)
+          if (!res.ok) return
+          const data = await res.json()
+          setRuns(prev => prev.map(pr =>
+            pr.run_id === r.run_id
+              ? { ...pr, counts: data.counts, status: data.status, loading: false }
+              : pr
+          ))
+        } catch {
+          setRuns(prev => prev.map(pr =>
+            pr.run_id === r.run_id ? { ...pr, loading: false } : pr
+          ))
+        }
     })
   }, [])
 
