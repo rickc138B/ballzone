@@ -522,7 +522,7 @@ export default function RunPage() {
             <button onClick={copyReminder} className="btn-secondary text-sm py-2.5">
               {copiedReminder ? '✓ Copied!' : '📣 Copy Reminder'}
             </button>
-            <a href={`/run/${runId}/edit`} className="btn-secondary text-sm py-2.5 block text-center">
+            <a href={`/run/${runId}/edit${getShareToken(runId) ? `?token=${getShareToken(runId)}` : ``}`} className="btn-secondary text-sm py-2.5 block text-center">
               ✏️ Edit Run
             </a>
             <a href={`/run/${runId}/game${run?.share_token ? `?token=${run.share_token}` : ''}`} className="btn-secondary text-sm py-2.5 block text-center">
@@ -532,7 +532,7 @@ export default function RunPage() {
               📋 Add Historical Game
             </a>
             {run.status === 'open' && (
-              <a href={`/run/${runId}/edit`} className="btn-secondary text-sm py-2.5 block text-center">
+              <a href={`/run/${runId}/edit${getShareToken(runId) ? `?token=${getShareToken(runId)}` : ``}`} className="btn-secondary text-sm py-2.5 block text-center">
                 ✏️ Edit Run
               </a>
             )}

@@ -25,11 +25,15 @@ export default function EditRunPage() {
   const [playersNeeded, setPlayersNeeded] = useState(10)
 
   const fetchRun = useCallback(async () => {
-    const res = await fetch(`/api/runs/${runId}`)
+    const shareToken = getShareToken(runId)
+    const headers: Record<string, string> = {}
+    if (shareToken) headers['x-share-token'] = shareToken
+    const res = await fetch(`/api/runs/${runId}`, { headers })
     if (!res.ok) { setLoading(false); setNotAllowed(true); return }
-    const data: Run = await res.json()
+    const data: Run & { isOrganizer?: boolean } = await res.json()
 
     if (data.status !== 'open') { setNotAllowed(true); setLoading(false); return }
+    if (!data.isOrganizer && !isOrganizerOfRun(runId)) { setNotAllowed(true); setLoading(false); return }
 
     setRun(data)
     setTitle(data.title)
@@ -42,7 +46,6 @@ export default function EditRunPage() {
   }, [runId])
 
   useEffect(() => {
-    if (!isOrganizerOfRun(runId)) { setNotAllowed(true); setLoading(false); return }
     fetchRun()
   }, [runId, fetchRun])
 
