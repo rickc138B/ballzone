@@ -12,7 +12,7 @@ export default function GamePage() {
   const router = useRouter()
   const runId = params.id as string
   const shareToken = getShareToken(runId)
-  const isOrganizer = isOrganizerOfRun(runId)
+  const [isOrganizer, setIsOrganizer] = useState(isOrganizerOfRun(runId))
 
   const { state, actions } = useGameSession(runId, shareToken)
   const { game, teamA, teamB, scoreEvents } = state
@@ -41,6 +41,19 @@ export default function GamePage() {
   const [showStartScore, setShowStartScore] = useState(false)
   const [floatingReactions, setFloatingReactions] = useState<{id: string; emoji: string; x: number}[]>([])
   const [fanReaction, setFanReaction] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function checkOrganizer() {
+      if (isOrganizer) return // already confirmed via localStorage
+      const headers: Record<string, string> = {}
+      if (shareToken) headers['x-share-token'] = shareToken
+      const res = await fetch(`/api/runs/${runId}`, { headers })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.isOrganizer) setIsOrganizer(true)
+    }
+    checkOrganizer()
+  }, [runId, shareToken])
 
   useEffect(() => {
     async function fetchPlayers() {

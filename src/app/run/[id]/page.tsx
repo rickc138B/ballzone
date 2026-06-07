@@ -119,11 +119,15 @@ export default function RunPage() {
   }, [runId])
 
   const fetchRun = useCallback(async () => {
-    const res = await fetch(`/api/runs/${runId}`)
+    const shareToken = getShareToken(runId)
+    const headers: Record<string, string> = {}
+    if (shareToken) headers['x-share-token'] = shareToken
+    const res = await fetch(`/api/runs/${runId}`, { headers })
     if (!res.ok) { setNotFound(true); setLoading(false); return }
-    const data: RunWithAttendance = await res.json()
+    const data: RunWithAttendance & { isOrganizer?: boolean } = await res.json()
     setRun(data)
     setLoading(false)
+    if (data.isOrganizer || isOrganizerOfRun(runId)) setIsOrganizer(true)
 
     const pid = getParticipantId()
     if (pid) {
@@ -144,7 +148,6 @@ export default function RunPage() {
       const stored = localStorage.getItem(`reactions:${runId}`)
       if (stored) setMyReactions(JSON.parse(stored))
     })
-    setIsOrganizer(isOrganizerOfRun(runId))
     setName(getParticipantName())
 
     // Realtime subscription

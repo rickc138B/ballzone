@@ -37,8 +37,13 @@ export async function GET(
       else if (a.status === 'late') counts.late++
     }
 
+    const shareToken = req.headers.get('x-share-token')
+    const isOrganizer = !!shareToken && shareToken === run.share_token
+
     return NextResponse.json({
       ...run,
+      share_token: undefined, // never expose to client
+      isOrganizer,
       attendance: attendance ?? [],
       counts,
     })
