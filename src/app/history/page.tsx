@@ -73,7 +73,9 @@ export default function HistoryPage() {
             pr.run_id === r.run_id ? { ...pr, loading: false } : pr
           ))
         }
-    })
+      })
+    }
+    loadRuns()
   }, [])
 
   if (loading) {
