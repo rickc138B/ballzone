@@ -9,8 +9,10 @@ export default function RunCreatedPage() {
   const searchParams = useSearchParams()
   const runId = params.id as string
   const shareText = searchParams.get('share_text') ?? ''
+  const token = searchParams.get('token') ?? ''
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const runUrl = `${appUrl}/run/${runId}`
+  const runUrl = `${appUrl}/run/${runId}${token ? `?token=${token}` : ''}`
+  const runPageHref = `/run/${runId}${token ? `?token=${token}` : ''}`
 
   const [copied, setCopied] = useState(false)
 
@@ -54,7 +56,7 @@ export default function RunCreatedPage() {
         </p>
       </div>
 
-      <Link href={`/run/${runId}`} className="text-white/40 text-sm underline underline-offset-2">
+      <Link href={runPageHref} className="text-white/40 text-sm underline underline-offset-2">
         View run page →
       </Link>
     </main>
