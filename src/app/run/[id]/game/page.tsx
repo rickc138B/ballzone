@@ -649,6 +649,11 @@ export default function GamePage() {
           )
         })()}
 
+        {/* DEBUG */}
+        <div className="px-4 py-2 bg-red-900/40 text-xs text-white/60 font-mono">
+          org:{isOrganizer?'Y':'N'} status:{game?.status??'null'} setup:{needsSetup?'Y':'N'} token:{shareToken?shareToken.slice(0,6):'null'}
+        </div>
+
         {/* Controls */}
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
 
