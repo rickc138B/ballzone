@@ -35,6 +35,7 @@ export default function GamePage() {
   const [teamBName, setTeamBName] = useState('Team B')
   const [teamAssignments, setTeamAssignments] = useState<Record<string, 'a' | 'b' | null>>({})
   const [settingUp, setSettingUp] = useState(false)
+  const setupJustCompleted = useRef(false)
   const [players, setPlayers] = useState<{id: string, name: string}[]>([])
   const [walkInName, setWalkInName] = useState('')
   const [startScoreA, setStartScoreA] = useState(0)
@@ -89,8 +90,12 @@ export default function GamePage() {
   }, [game?.id])
 
   useEffect(() => {
-    if (!state.loading && !settingUp && (!game || game.status === 'complete')) setNeedsSetup(true)
-    if (!state.loading && game && game.status !== 'complete') setNeedsSetup(false)
+    if (!state.loading && game?.status === 'live') {
+      setupJustCompleted.current = false
+      setNeedsSetup(false)
+    } else if (!state.loading && !settingUp && !setupJustCompleted.current && (!game || game.status === 'complete')) {
+      setNeedsSetup(true)
+    }
     if (teamA?.name) setTeamAName(teamA.name)
     if (teamB?.name) setTeamBName(teamB.name)
   }, [state.loading, game, teamA, teamB, settingUp])
@@ -179,6 +184,7 @@ export default function GamePage() {
 
     // Small delay to allow realtime to pick up the new game
     await new Promise(r => setTimeout(r, 1000))
+    setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
   }
