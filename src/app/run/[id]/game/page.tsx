@@ -89,7 +89,7 @@ export default function GamePage() {
   }, [game?.id])
 
   useEffect(() => {
-    if (!state.loading && !game) setNeedsSetup(true)
+    if (!state.loading && (!game || game.status === 'complete')) setNeedsSetup(true)
     if (teamA?.name) setTeamAName(teamA.name)
     if (teamB?.name) setTeamBName(teamB.name)
   }, [state.loading, game, teamA, teamB])
