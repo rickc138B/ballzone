@@ -11,8 +11,9 @@ export default function GamePage() {
   const params = useParams()
   const router = useRouter()
   const runId = params.id as string
-  const shareToken = getShareToken(runId)
-  const [isOrganizer, setIsOrganizer] = useState(isOrganizerOfRun(runId))
+  const urlToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('token') : null
+  const shareToken = getShareToken(runId) ?? urlToken
+  const [isOrganizer, setIsOrganizer] = useState(isOrganizerOfRun(runId) || !!urlToken)
 
   const { state, actions } = useGameSession(runId, shareToken)
   const { game, teamA, teamB, scoreEvents } = state
