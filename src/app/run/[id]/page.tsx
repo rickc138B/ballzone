@@ -44,6 +44,11 @@ export default function RunPage() {
   const [showNamePrompt, setShowNamePrompt] = useState(false)
   const [name, setName] = useState('')
   const [isOrganizer, setIsOrganizer] = useState(false)
+  const [clientShareToken, setClientShareToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    setClientShareToken(getShareToken(runId))
+  }, [runId])
   const [copied, setCopied] = useState(false)
   const [copiedList, setCopiedList] = useState(false)
   const [copiedReminder, setCopiedReminder] = useState(false)
@@ -522,17 +527,17 @@ export default function RunPage() {
             <button onClick={copyReminder} className="btn-secondary text-sm py-2.5">
               {copiedReminder ? '✓ Copied!' : '📣 Copy Reminder'}
             </button>
-            <a href={`/run/${runId}/edit${getShareToken(runId) ? `?token=${getShareToken(runId)}` : ``}`} className="btn-secondary text-sm py-2.5 block text-center">
+            <a href={`/run/${runId}/edit${clientShareToken ? `?token=${clientShareToken}` : ``}`} className="btn-secondary text-sm py-2.5 block text-center">
               ✏️ Edit Run
             </a>
-            <a href={`/run/${runId}/game${getShareToken(runId) ? `?token=${getShareToken(runId)}` : ''}`} className="btn-secondary text-sm py-2.5 block text-center">
+            <a href={`/run/${runId}/game${clientShareToken ? `?token=${clientShareToken}` : ''}`} className="btn-secondary text-sm py-2.5 block text-center">
               🏀 Keep Score
             </a>
             <a href={`/run/${runId}/backfill`} className="btn-secondary text-sm py-2.5 block text-center">
               📋 Add Historical Game
             </a>
             {run.status === 'open' && (
-              <a href={`/run/${runId}/edit${getShareToken(runId) ? `?token=${getShareToken(runId)}` : ``}`} className="btn-secondary text-sm py-2.5 block text-center">
+              <a href={`/run/${runId}/edit${clientShareToken ? `?token=${clientShareToken}` : ``}`} className="btn-secondary text-sm py-2.5 block text-center">
                 ✏️ Edit Run
               </a>
             )}
