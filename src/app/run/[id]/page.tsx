@@ -11,6 +11,7 @@ import {
   saveParticipantName,
   isOrganizerOfRun,
   getShareToken,
+  saveShareToken,
 } from '@/lib/session-token'
 import { formatRunDate, formatRunTime } from '@/lib/utils'
 import type { RunWithAttendance, AttendanceStatus, GameCommentary } from '@/lib/types'
@@ -127,7 +128,13 @@ export default function RunPage() {
     const data: RunWithAttendance & { isOrganizer?: boolean } = await res.json()
     setRun(data)
     setLoading(false)
-    if (data.isOrganizer || isOrganizerOfRun(runId)) setIsOrganizer(true)
+    if (data.isOrganizer || isOrganizerOfRun(runId)) {
+      setIsOrganizer(true)
+      if (data.isOrganizer) {
+        const urlToken = new URLSearchParams(window.location.search).get('token')
+        if (urlToken) saveShareToken(runId, urlToken)
+      }
+    }
 
     const pid = getParticipantId()
     if (pid) {

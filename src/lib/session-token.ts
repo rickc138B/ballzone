@@ -91,7 +91,14 @@ export function getShareToken(runId: string): string | null {
   if (typeof window === 'undefined') return null
   const urlToken = new URLSearchParams(window.location.search).get('token')
   if (urlToken) return urlToken
+  const stored = localStorage.getItem(`bz_share_token:${runId}`)
+  if (stored) return stored
   return getOrganizerRuns().find(r => r.run_id === runId)?.share_token ?? null
+}
+
+export function saveShareToken(runId: string, token: string) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(`bz_share_token:${runId}`, token)
 }
 
 // Profile session token (set after OTP verify)
