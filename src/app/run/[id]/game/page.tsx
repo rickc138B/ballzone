@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useGameSession } from '@/hooks/useGameSession'
 import { getShareToken, isOrganizerOfRun } from '@/lib/session-token'
