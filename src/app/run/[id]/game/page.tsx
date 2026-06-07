@@ -194,6 +194,12 @@ export default function GamePage() {
     setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
+    // Fallback: if game never arrives via realtime, reset after 4s
+    setTimeout(() => {
+      if (setupJustCompleted.current) {
+        setupJustCompleted.current = false
+      }
+    }, 4000)
   }
 
   async function broadcastReaction(emoji: string) {
