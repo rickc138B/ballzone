@@ -160,7 +160,8 @@ export default function GamePage() {
       sequence_number: nextSeq,
       team_a_id: teamARow.id,
       team_b_id: teamBRow.id,
-      status: 'pre_game',
+      status: 'live',
+      started_at: new Date().toISOString(),
       score_a: startScoreA,
       score_b: startScoreB,
     }).select().single()
