@@ -191,9 +191,12 @@ export default function GamePage() {
 
     // Explicitly fetch the new game instead of waiting for realtime
     await fetchGame()
+    // Only lock needsSetup if game actually loaded
     setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
+    // Safety: clear the lock after 3s regardless
+    setTimeout(() => { setupJustCompleted.current = false }, 3000)
   }
 
   async function broadcastReaction(emoji: string) {
@@ -651,7 +654,7 @@ export default function GamePage() {
 
         {/* DEBUG */}
         <div className="px-4 py-2 bg-red-900/40 text-xs text-white/60 font-mono">
-          org:{isOrganizer?'Y':'N'} status:{game?.status??'null'} setup:{needsSetup?'Y':'N'} token:{shareToken?shareToken.slice(0,6):'null'}
+          org:{isOrganizer?'Y':'N'} status:{game?.status??'null'} setup:{needsSetup?'Y':'N'} token:{shareToken?shareToken.slice(0,6):'null'} loading:{state.loading?'Y':'N'}
         </div>
 
         {/* Controls */}
