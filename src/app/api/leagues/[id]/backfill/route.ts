@@ -45,30 +45,68 @@ export async function POST(
     const homeScore = home_team.players.reduce((s: number, p: any) => s + (p.pts ?? 0), 0)
     const awayScore = away_team.players.reduce((s: number, p: any) => s + (p.pts ?? 0), 0)
 
-    const { data: existing } = await supabase
-      .from('league_games').select('sequence_number')
-      .eq('league_id', leagueId).order('sequence_number', { ascending: false }).limit(1)
-    const nextSeq = (existing?.[0]?.sequence_number ?? 0) + 1
-
     const status = game.status ?? 'complete'
-    const { data: leagueGame, error: gameError } = await supabase
-      .from('league_games')
-      .insert({
-        league_id: leagueId,
-        home_team_id: homeTeam.id,
-        away_team_id: awayTeam.id,
-        home_score: status === 'scheduled' ? null : homeScore,
-        away_score: status === 'scheduled' ? null : awayScore,
-        played_at: game.played_at ? new Date(game.played_at).toISOString() : new Date().toISOString(),
-        round_label: game.round_label ?? null,
-        location_name: game.location_name ?? null,
-        sequence_number: nextSeq,
-        status,
-      })
-      .select('id').single()
+    let leagueGame: { id: string } | null = null
+    let nextSeq: number
 
-    if (gameError || !leagueGame)
-      return NextResponse.json({ error: gameError?.message ?? 'Failed to create game' }, { status: 500 })
+    if (game.game_id) {
+      // Update existing game
+      const { data: existing } = await supabase
+        .from('league_games').select('id, sequence_number').eq('id', game.game_id).single()
+      if (!existing)
+        return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+      nextSeq = existing.sequence_number
+
+      // Delete existing player stats so we can re-insert cleanly
+      await supabase.from('player_game_stats').delete().eq('league_game_id', game.game_id)
+
+      const { error: updateError } = await supabase
+        .from('league_games')
+        .update({
+          home_team_id: homeTeam.id,
+          away_team_id: awayTeam.id,
+          home_score: status === 'scheduled' ? null : homeScore,
+          away_score: status === 'scheduled' ? null : awayScore,
+          played_at: game.played_at ? new Date(game.played_at).toISOString() : new Date().toISOString(),
+          round_label: game.round_label ?? null,
+          location_name: game.location_name ?? null,
+          status,
+        })
+        .eq('id', game.game_id)
+
+      if (updateError)
+        return NextResponse.json({ error: updateError.message ?? 'Failed to update game' }, { status: 500 })
+      leagueGame = { id: game.game_id }
+    } else {
+      // Insert new game
+      const { data: seqData } = await supabase
+        .from('league_games').select('sequence_number')
+        .eq('league_id', leagueId).order('sequence_number', { ascending: false }).limit(1)
+      nextSeq = (seqData?.[0]?.sequence_number ?? 0) + 1
+
+      const { data: inserted, error: gameError } = await supabase
+        .from('league_games')
+        .insert({
+          league_id: leagueId,
+          home_team_id: homeTeam.id,
+          away_team_id: awayTeam.id,
+          home_score: status === 'scheduled' ? null : homeScore,
+          away_score: status === 'scheduled' ? null : awayScore,
+          played_at: game.played_at ? new Date(game.played_at).toISOString() : new Date().toISOString(),
+          round_label: game.round_label ?? null,
+          location_name: game.location_name ?? null,
+          sequence_number: nextSeq,
+          status,
+        })
+        .select('id').single()
+
+      if (gameError || !inserted)
+        return NextResponse.json({ error: gameError?.message ?? 'Failed to create game' }, { status: 500 })
+      leagueGame = inserted
+    }
+
+    if (!leagueGame)
+      return NextResponse.json({ error: 'Failed to resolve game' }, { status: 500 })
 
     if (status !== 'scheduled') {
       async function insertTeamStats(teamData: any, teamId: string, gameId: string) {

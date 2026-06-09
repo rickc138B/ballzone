@@ -14,18 +14,23 @@ const supabase = createClient(
 
 const NBA_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-  'Referer': 'https://www.nba.com',
-  'Accept': 'application/json',
+  'Referer': 'https://www.nba.com/',
+  'Origin': 'https://www.nba.com',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'x-nba-stats-origin': 'stats',
+  'x-nba-stats-token': 'true',
+  'Connection': 'keep-alive',
 }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 // Dates to patch — add any missing dates here
-const PATCH_DATES = ['2026-06-03', '2026-06-04', '2026-06-05']
+const PATCH_DATES = ['2026-05-13', '2026-05-15', '2026-05-17', '2026-05-28', '2026-05-30', '2026-06-03', '2026-06-05']
 
 function formatDateForNBA(isoDate) {
   const [y, m, d] = isoDate.split('-')
-  return `${m}%2F${d}%2F${y}`
+  return `${m}/${d}/${y}`
 }
 
 async function main() {
@@ -55,38 +60,26 @@ async function main() {
 
     // 1. Get scoreboard for real scores
     const sbRes = await fetch(
-      `https://stats.nba.com/stats/scoreboardV2?DayOffset=0&LeagueID=00&gameDate=${dateStr}`,
+      `https://stats.nba.com/stats/scoreboardV3?GameDate=${dateStr}&LeagueID=00`,
       { headers: NBA_HEADERS }
     )
-    if (!sbRes.ok) { console.log(`  Scoreboard HTTP ${sbRes.status}`); continue }
+    console.log(`  Scoreboard status: ${sbRes.status}`)
+    if (!sbRes.ok) { continue }
 
     const sbData = await sbRes.json()
-    const gameHeader = sbData.resultSets?.find(r => r.name === 'GameHeader')
-    const lineScore = sbData.resultSets?.find(r => r.name === 'LineScore')
+    const sbGames = sbData.scoreboard?.games ?? []
 
-    if (!gameHeader?.rowSet?.length) { console.log(`  No games`); continue }
-
-    const ghHeaders = gameHeader.headers
-    const lsHeaders = lineScore?.headers ?? []
-
-    const scoresByGameId = {}
-    for (const row of lineScore?.rowSet ?? []) {
-      const r = {}
-      lsHeaders.forEach((h, i) => r[h] = row[i])
-      if (!scoresByGameId[r.GAME_ID]) scoresByGameId[r.GAME_ID] = []
-      scoresByGameId[r.GAME_ID].push(r)
-    }
+    if (!sbGames.length) { console.log(`  No games`); continue }
 
     const games = []
     const gameIds = []
 
-    for (const row of gameHeader.rowSet) {
-      const r = {}
-      ghHeaders.forEach((h, i) => r[h] = row[i])
-      const gameId = r.GAME_ID
-      const scores = scoresByGameId[gameId] ?? []
-      const away = scores[0]
-      const home = scores[1]
+    for (const g of sbGames) {
+      const gameId = g.gameId
+      const homeAbbr = g.homeTeam?.teamTricode?.trim()
+      const awayAbbr = g.awayTeam?.teamTricode?.trim()
+      const homeScore = g.gameStatus === 3 ? (g.homeTeam?.score ?? null) : null
+      const awayScore = g.gameStatus === 3 ? (g.awayTeam?.score ?? null) : null
 
       gameIds.push(gameId)
       games.push({
@@ -94,11 +87,11 @@ async function main() {
         league_id: 'nba-2025-26',
         season: '2025-26',
         game_date: isoDate,
-        home_team_id: teamByAbbr[home?.TEAM_ABBREVIATION?.trim()] ?? null,
-        away_team_id: teamByAbbr[away?.TEAM_ABBREVIATION?.trim()] ?? null,
-        home_score: home?.PTS ?? null,
-        away_score: away?.PTS ?? null,
-        status: 'final',
+        home_team_id: teamByAbbr[homeAbbr] ?? null,
+        away_team_id: teamByAbbr[awayAbbr] ?? null,
+        home_score: homeScore,
+        away_score: awayScore,
+        status: g.gameStatus === 3 ? 'final' : 'scheduled',
       })
     }
 
@@ -135,6 +128,7 @@ async function main() {
 
         stats.push({
           id: `nba-gamelog-${externalId}-${gameId}`,
+          game_id: `nba-game-${gameId}`,
           player_id: mapped.id,
           team_id: mapped.current_team_id,
           opponent_id: teamByAbbr[opponentAbbr] ?? null,

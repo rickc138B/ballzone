@@ -87,7 +87,7 @@ export default function NewRunPage() {
         created_at: new Date().toISOString(),
       })
 
-      router.push(`/run/${data.run_id}/created?share_text=${encodeURIComponent(data.share_text)}`)
+      router.push(`/run/${data.run_id}/created?share_text=${encodeURIComponent(data.share_text)}&token=${data.share_token}`)
     } catch (e) {
       setError('Network error — check your connection')
     } finally {

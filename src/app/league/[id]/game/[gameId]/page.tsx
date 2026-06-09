@@ -193,9 +193,13 @@ export default function LeagueGamePage() {
             <img src={game.recap_image_url} alt="Game recap" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 right-4">
-              <p className="text-white/50 text-xs uppercase tracking-wider mb-0.5">Final</p>
-              <p className="text-white font-black text-xl">{homeWon ? game.home_team.name : game.away_team.name} wins</p>
-              <p className="text-orange-400 font-black text-4xl">{game.home_score}–{game.away_score}</p>
+              {!isScheduled && (
+                <>
+                  <p className="text-white/50 text-xs uppercase tracking-wider mb-0.5">Final</p>
+                  <p className="text-white font-black text-xl">{homeWon ? game.home_team.name : (game.away_team?.name ?? 'TBD')} wins</p>
+                  <p className="text-orange-400 font-black text-4xl">{game.home_score}–{game.away_score}</p>
+                </>
+              )}
             </div>
           </div>
         )}
