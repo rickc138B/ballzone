@@ -55,7 +55,7 @@ export default function GamePage() {
   })
   const [settingUp, setSettingUp] = useState(false)
   const setupJustCompleted = useRef(false)
-  const [players, setPlayers] = useState<{id: string, name: string}[]>([])
+  const [players, setPlayers] = useState<{id: string, name: string}[]>(() => { if (typeof window === "undefined") return []; try { const s = localStorage.getItem(`bz_players:${runId}`); return s ? JSON.parse(s) : [] } catch { return [] } })
   const [walkInName, setWalkInName] = useState('')
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
@@ -167,6 +167,8 @@ export default function GamePage() {
 
     if (!res.ok) { setSettingUp(false); return }
     if (token) saveShareToken(runId, token)
+    if (Object.keys(teamAssignments).length > 0) localStorage.setItem(`bz_assignments:${runId}`, JSON.stringify(teamAssignments))
+    if (players.length > 0) localStorage.setItem(`bz_players:${runId}`, JSON.stringify(players))
 
     const data = await res.json()
     setupJustCompleted.current = true
