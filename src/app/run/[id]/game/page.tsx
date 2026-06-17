@@ -46,6 +46,16 @@ export default function GamePage() {
   const [needsSetup, setNeedsSetup] = useState(false)
   const [teamAName, setTeamAName] = useState('Team A')
   const [teamBName, setTeamBName] = useState('Team B')
+  useEffect(() => {
+    if (!runId) return
+    try {
+      const savedPlayers = localStorage.getItem(`bz_players:${runId}`)
+      const savedAssignments = localStorage.getItem(`bz_assignments:${runId}`)
+      if (savedPlayers) setPlayers(JSON.parse(savedPlayers))
+      if (savedAssignments) setTeamAssignments(JSON.parse(savedAssignments))
+    } catch {}
+  }, [runId])
+
   const [teamAssignments, setTeamAssignments] = useState<Record<string, 'a' | 'b' | null>>(() => {
     if (typeof window === 'undefined') return {}
     try {
@@ -55,7 +65,7 @@ export default function GamePage() {
   })
   const [settingUp, setSettingUp] = useState(false)
   const setupJustCompleted = useRef(false)
-  const [players, setPlayers] = useState<{id: string, name: string}[]>(() => { if (typeof window === "undefined") return []; try { const s = localStorage.getItem(`bz_players:${runId}`); return s ? JSON.parse(s) : [] } catch { return [] } })
+  const [players, setPlayers] = useState<{id: string, name: string}[]>([])
   const [walkInName, setWalkInName] = useState('')
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
