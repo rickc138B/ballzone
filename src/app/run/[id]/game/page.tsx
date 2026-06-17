@@ -197,7 +197,7 @@ export default function GamePage() {
     }
   }
 
-  async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3) {
+  async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3 | 0) {
     const isWalkIn = selectedScorer?.startsWith('walkin_') ?? false
     const isParticipant = selectedScorer && !isWalkIn && players.some(p => p.id === selectedScorer)
     const isTypedName = selectedScorer && !isWalkIn && !isParticipant
@@ -236,13 +236,6 @@ export default function GamePage() {
     )
   }
 
-  if (state.error) {
-    return (
-      <main className="min-h-dvh flex items-center justify-center p-6">
-        <div className="text-red-400 text-sm text-center break-all">{state.error}</div>
-      </main>
-    )
-  }
 
   // Setup screen
   if (needsSetup && isOrganizer) {
@@ -625,6 +618,12 @@ export default function GamePage() {
                     {pts}
                   </button>
                 ))}
+                <button
+                  onClick={() => scorePoints(pointSelector, 0 as any)}
+                  className="flex-1 py-4 rounded-2xl font-black text-xl active:scale-95 transition-transform bg-white/5 text-white/30 border border-white/10"
+                >
+                  Miss
+                </button>
               </div>
               <button
                 onClick={() => { setPointSelector(null); setSelectedScorer(null) }}
