@@ -44,13 +44,14 @@ export default function RunPage() {
   const [showNamePrompt, setShowNamePrompt] = useState(false)
   const [name, setName] = useState('')
   const [isOrganizer, setIsOrganizer] = useState(false)
-  const [clientShareToken] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
+  const [clientShareToken, setClientShareToken] = useState<string | null>(null)
+
+  useEffect(() => {
     const urlToken = new URLSearchParams(window.location.search).get('token')
     const stored = getShareToken(runId)
-    console.log('[clientShareToken]', { runId, urlToken, stored })
-    return urlToken ?? stored
-  })
+    const resolved = urlToken ?? stored ?? null
+    if (resolved) setClientShareToken(resolved)
+  }, [runId])
   const [copied, setCopied] = useState(false)
   const [copiedList, setCopiedList] = useState(false)
   const [copiedReminder, setCopiedReminder] = useState(false)
