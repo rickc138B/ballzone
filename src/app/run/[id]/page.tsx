@@ -238,6 +238,18 @@ export default function RunPage() {
     fetchRun()
   }
 
+  async function deleteRun() {
+    const token = clientShareToken
+    if (!token) return
+    if (!window.confirm('Delete this run? This cannot be undone.')) return
+    const res = await fetch(`/api/runs/${runId}`, {
+      method: 'DELETE',
+      headers: { 'x-share-token': token },
+    })
+    if (res.ok) { window.location.href = '/runs' }
+    else { alert('Failed to delete run.') }
+  }
+
   function copyLink() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
     const token = run?.share_token ? `?token=${run.share_token}` : ''
