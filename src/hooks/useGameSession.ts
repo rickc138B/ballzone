@@ -46,7 +46,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       .limit(1)
 
     if (!games || games.length === 0) {
-      setState(s => ({ ...s, loading: false }))
+      setState(s => ({ ...s, loading: false, error: `fetchGame got 0 games for session ${sessionId}. DB error: ${gamesError?.message ?? "none"}` }))
       return
     }
     const game = games[0]
