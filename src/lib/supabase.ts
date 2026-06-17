@@ -7,8 +7,8 @@ export function createClient() {
   )
 }
 
+// Singleton for realtime subscriptions
 let client: ReturnType<typeof createClient> | null = null
-
 export function getSupabase() {
   if (!client) client = createClient()
   return client
