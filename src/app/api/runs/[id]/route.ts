@@ -108,3 +108,41 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const shareToken = req.headers.get('x-share-token')
+    if (!shareToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const supabase = createServiceClient()
+
+    const { data: run } = await supabase
+      .from('runs')
+      .select('id, share_token')
+      .eq('id', id)
+      .single()
+
+    if (!run || run.share_token !== shareToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Delete in order: score_events → games → run_teams → participants → runs
+    const { data: games } = await supabase.from('games').select('id').eq('session_id', id)
+    const gameIds = (games ?? []).map(g => g.id)
+    if (gameIds.length > 0) {
+      await supabase.from('score_events').delete().in('game_id', gameIds)
+      await supabase.from('games').delete().in('id', gameIds)
+    }
+    await supabase.from('run_teams').delete().eq('session_id', id)
+    await supabase.from('run_participants').delete().eq('run_id', id)
+    await supabase.from('runs').delete().eq('id', id)
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('DELETE run error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
