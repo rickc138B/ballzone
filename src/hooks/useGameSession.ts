@@ -38,7 +38,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     const supabase = getSupabase()
     console.log('[fetchGame] called with sessionId:', sessionId)
 
-    const { data: games } = await supabase
+    const { data: games, error: gamesError } = await supabase
       .from('games')
       .select('*, team_a:run_teams!games_team_a_id_fkey(*), team_b:run_teams!games_team_b_id_fkey(*)')
       .eq('session_id', sessionId)
