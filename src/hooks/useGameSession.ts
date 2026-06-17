@@ -159,7 +159,18 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       ended_at: new Date().toISOString(),
       winner_team_id: winnerId,
     }).eq('id', state.game.id)
-    setState(s => ({ ...s, game: s.game ? { ...s.game, status: 'complete', winner_team_id: winnerId } : null }))
+    // Fetch final score events so stats show on complete screen
+    const supabase = getSupabase()
+    const { data: finalEvents } = await supabase
+      .from('score_events')
+      .select('*')
+      .eq('game_id', state.game.id)
+      .order('timestamp', { ascending: true })
+    setState(s => ({
+      ...s,
+      game: s.game ? { ...s.game, status: 'complete', winner_team_id: winnerId } : null,
+      scoreEvents: finalEvents ?? s.scoreEvents,
+    }))
     fetch('/api/analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
