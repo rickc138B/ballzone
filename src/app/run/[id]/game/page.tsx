@@ -50,6 +50,22 @@ export default function GamePage() {
   const [settingUp, setSettingUp] = useState(false)
   const setupJustCompleted = useRef(false)
   const restoredRef = useRef(false)
+
+  useEffect(() => {
+    if (!runId) return
+    const token = shareToken ?? getShareToken(runId) ?? new URLSearchParams(window.location.search).get('token')
+    const headers: Record<string, string> = {}
+    if (token) headers['x-share-token'] = token
+    fetch(`/api/runs/${runId}`, { headers })
+      .then(r => r.json())
+      .then(data => {
+        const confirmed = (data.attendance ?? [])
+          .filter((a: any) => a.status === 'in')
+          .map((a: any) => ({ id: a.participant_id, name: a.participant?.display_name ?? 'Unknown' }))
+        setAttendees(confirmed)
+      })
+      .catch(() => {})
+  }, [runId])
   useEffect(() => {
     if (!runId || !needsSetup || restoredRef.current) return
     restoredRef.current = true
@@ -61,6 +77,7 @@ export default function GamePage() {
     } catch {}
   }, [runId, needsSetup])
   const [players, setPlayers] = useState<{id: string, name: string}[]>([])
+  const [attendees, setAttendees] = useState<{id: string, name: string}[]>([])
   const [walkInName, setWalkInName] = useState('')
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
@@ -284,6 +301,27 @@ export default function GamePage() {
             />
           </div>
         </div>
+
+        {/* Confirmed attendees */}
+        {attendees.length > 0 && (
+          <div className="mb-5">
+            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Confirmed players — tap to add</p>
+            <div className="flex flex-wrap gap-2">
+              {attendees.filter(a => !players.some(p => p.id === a.id)).map(a => (
+                <button
+                  key={a.id}
+                  onClick={() => {
+                    setPlayers(prev => [...prev, { id: a.id, name: a.name }])
+                    setTeamAssignments(prev => ({ ...prev, [a.id]: null }))
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-sm font-semibold bg-white/10 text-white/60 border border-white/20 active:scale-95 transition-transform"
+                >
+                  + {a.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Walk-in add */}
         <div className="mb-5">
