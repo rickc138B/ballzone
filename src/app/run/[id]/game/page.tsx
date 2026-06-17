@@ -97,14 +97,17 @@ export default function GamePage() {
   }, [game?.id])
 
   useEffect(() => {
-    if (!state.loading && game?.status === 'live') {
+    if (state.loading) return
+    if (game?.status === 'live') {
       setupJustCompleted.current = false
       setNeedsSetup(false)
-    } else if (!state.loading && !settingUp && !setupJustCompleted.current && (!game || game.status === 'complete')) {
+    } else if (!settingUp && !setupJustCompleted.current && (!game || game.status === 'complete')) {
       setNeedsSetup(true)
     }
-    if (teamA?.name) setTeamAName(teamA.name)
-    if (teamB?.name) setTeamBName(teamB.name)
+    if (game?.status === 'live') {
+      if (teamA?.name) setTeamAName(teamA.name)
+      if (teamB?.name) setTeamBName(teamB.name)
+    }
   }, [state.loading, game, teamA, teamB, settingUp])
 
   async function saveAttribution() {
@@ -189,11 +192,10 @@ export default function GamePage() {
       })
     }
 
-    // Explicitly fetch the new game instead of waiting for realtime
-    await fetchGame()
-    // Only lock needsSetup if game actually loaded
+    // Lock setup BEFORE fetchGame so the useEffect doesn't flip needsSetup back
     setupJustCompleted.current = true
     setNeedsSetup(false)
+    await fetchGame()
     setSettingUp(false)
     // Safety: clear the lock after 3s regardless
     setTimeout(() => { setupJustCompleted.current = false }, 3000)
