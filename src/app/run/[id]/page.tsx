@@ -536,6 +536,7 @@ export default function RunPage() {
             <a href={`/run/${runId}/game${clientShareToken ? `?token=${clientShareToken}` : ''}`} className="btn-secondary text-sm py-2.5 block text-center">
               🏀 Keep Score
             </a>
+            <button onClick={deleteRun} className="w-full py-2.5 rounded-xl bg-red-500/10 text-red-400 text-sm font-semibold border border-red-500/20 active:scale-95 transition-transform">🗑 Delete Run</button>
             <a href={`/run/${runId}/backfill`} className="btn-secondary text-sm py-2.5 block text-center">
               📋 Add Historical Game
             </a>
