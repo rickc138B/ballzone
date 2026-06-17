@@ -14,7 +14,7 @@ export interface GameState {
 }
 
 export interface GameActions {
-  addScore: (teamSide: 'a' | 'b', points: 1 | 2 | 3, scorerParticipantId?: string, scorerName?: string) => Promise<void>
+  addScore: (teamSide: 'a' | 'b', points: 0 | 1 | 2 | 3, scorerParticipantId?: string, scorerName?: string) => Promise<void>
   undo: () => Promise<void>
   flagDispute: () => Promise<void>
   resolveDispute: () => Promise<void>
@@ -102,7 +102,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     return () => { supabase.removeChannel(channel) }
   }, [sessionId, fetchGame])
 
-  const addScore = useCallback(async (teamSide: 'a' | 'b', points: 1 | 2 | 3, scorerParticipantId?: string, scorerName?: string) => {
+  const addScore = useCallback(async (teamSide: 'a' | 'b', points: 0 | 1 | 2 | 3, scorerParticipantId?: string, scorerName?: string) => {
     if (!state.game || state.game.status !== 'live') return
     const teamId = teamSide === 'a' ? state.game.team_a_id : state.game.team_b_id
 
