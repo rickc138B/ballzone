@@ -146,54 +146,17 @@ export default function GamePage() {
   async function setupGame() {
     if (settingUp) return
     setSettingUp(true)
-    const supabase = getSupabase()
 
-    const { data: teamARow } = await supabase
-      .from('run_teams')
-      .insert({ session_id: runId, name: teamAName, color: '#22c55e', status: 'on_court' })
-      .select().single()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (shareToken) headers['x-share-token'] = shareToken
 
-    const { data: teamBRow } = await supabase
-      .from('run_teams')
-      .insert({ session_id: runId, name: teamBName, color: '#f97316', status: 'on_court' })
-      .select().single()
+    const res = await fetch(`/api/runs/${runId}/games`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ teamAName, teamBName, startScoreA, startScoreB }),
+    })
 
-    if (!teamARow || !teamBRow) { setSettingUp(false); return }
-
-    await supabase.from('sessions').upsert(
-      { id: runId, run_id: runId, status: 'active' },
-      { onConflict: 'id' }
-    )
-
-    const { data: games } = await supabase
-      .from('games')
-      .select('sequence_number')
-      .eq('session_id', runId)
-      .order('sequence_number', { ascending: false })
-      .limit(1)
-
-    const nextSeq = (games?.[0]?.sequence_number ?? 0) + 1
-
-    const { data: newGame } = await supabase.from('games').insert({
-      session_id: runId,
-      sequence_number: nextSeq,
-      team_a_id: teamARow.id,
-      team_b_id: teamBRow.id,
-      status: 'live',
-      started_at: new Date().toISOString(),
-      score_a: startScoreA,
-      score_b: startScoreB,
-    }).select().single()
-
-    if (newGame && (startScoreA > 0 || startScoreB > 0)) {
-      await supabase.from('score_events').insert({
-        game_id: newGame.id,
-        team_id: teamARow.id,
-        points: 0,
-        scorer_name: '↩ Joined at ' + startScoreA + '–' + startScoreB,
-        voided: false,
-      })
-    }
+    if (!res.ok) { setSettingUp(false); return }
 
     // Lock setup BEFORE fetchGame so the useEffect doesn't flip needsSetup back
     setupJustCompleted.current = true

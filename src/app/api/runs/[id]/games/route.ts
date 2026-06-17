@@ -59,3 +59,95 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const shareToken = req.headers.get('x-share-token')
+    if (!shareToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const supabase = createServiceClient()
+
+    // Verify share token
+    const { data: run } = await supabase
+      .from('runs')
+      .select('id, share_token')
+      .eq('id', id)
+      .single()
+
+    if (!run || run.share_token !== shareToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { teamAName, teamBName, startScoreA = 0, startScoreB = 0 } = body
+
+    // Create teams
+    const { data: teamARow } = await supabase
+      .from('run_teams')
+      .insert({ session_id: id, name: teamAName, color: '#22c55e', status: 'on_court' })
+      .select().single()
+
+    const { data: teamBRow } = await supabase
+      .from('run_teams')
+      .insert({ session_id: id, name: teamBName, color: '#f97316', status: 'on_court' })
+      .select().single()
+
+    if (!teamARow || !teamBRow) {
+      return NextResponse.json({ error: 'Failed to create teams' }, { status: 500 })
+    }
+
+    // Ensure session exists
+    await supabase.from('sessions').upsert(
+      { id, run_id: id, status: 'active' },
+      { onConflict: 'id' }
+    )
+
+    // Get next sequence number
+    const { data: games } = await supabase
+      .from('games')
+      .select('sequence_number')
+      .eq('session_id', id)
+      .order('sequence_number', { ascending: false })
+      .limit(1)
+
+    const nextSeq = (games?.[0]?.sequence_number ?? 0) + 1
+
+    // Create game
+    const { data: newGame } = await supabase.from('games').insert({
+      session_id: id,
+      sequence_number: nextSeq,
+      team_a_id: teamARow.id,
+      team_b_id: teamBRow.id,
+      status: 'live',
+      started_at: new Date().toISOString(),
+      score_a: startScoreA,
+      score_b: startScoreB,
+    }).select().single()
+
+    if (!newGame) {
+      return NextResponse.json({ error: 'Failed to create game' }, { status: 500 })
+    }
+
+    // Add starting score event if mid-game join
+    if (startScoreA > 0 || startScoreB > 0) {
+      await supabase.from('score_events').insert({
+        game_id: newGame.id,
+        team_id: teamARow.id,
+        points: 0,
+        scorer_name: '↩ Joined at ' + startScoreA + '–' + startScoreB,
+        voided: false,
+      })
+    }
+
+    return NextResponse.json({ game: newGame, teamA: teamARow, teamB: teamBRow })
+  } catch (err) {
+    console.error('POST games error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
