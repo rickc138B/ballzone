@@ -27,6 +27,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     game: null, teamA: null, teamB: null, scoreEvents: [], loading: true, error: null,
   })
   const gameIdRef = useRef<string | null>(null)
+  const gameRef = useRef<typeof state.game>(null)
   const gameSeqRef = useRef<number>(0)
   const gameStatusRef = useRef<string | null>(null)
 
@@ -89,8 +90,9 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   }, [sessionId, fetchGame])
 
   const addScore = useCallback(async (teamSide: 'a' | 'b', points: 0 | 1 | 2 | 3, scorerParticipantId?: string, scorerName?: string, eventType: string = 'score') => {
-    if (!state.game || state.game.status !== 'live') return
-    const teamId = teamSide === 'a' ? state.game.team_a_id : state.game.team_b_id
+    const currentGame = gameRef.current ?? state.game
+    if (!currentGame || currentGame.status !== 'live') return
+    const teamId = teamSide === 'a' ? currentGame.team_a_id : currentGame.team_b_id
     const supabase = getSupabase()
 
     // Optimistic update first
@@ -106,7 +108,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     }
 
     await supabase.from('score_events').insert({
-      game_id: state.game.id,
+      game_id: (gameRef.current ?? state.game)!.id,
       team_id: teamId,
       points,
       scored_by_player_id: scorerParticipantId ?? null,
@@ -193,6 +195,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     gameIdRef.current = game.id
     gameSeqRef.current = game.sequence_number
     gameStatusRef.current = game.status
+    gameRef.current = game
     setState({
       game, teamA, teamB,
       scoreEvents: [],
