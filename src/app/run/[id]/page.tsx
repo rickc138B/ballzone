@@ -47,7 +47,9 @@ export default function RunPage() {
   const [clientShareToken] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
     const urlToken = new URLSearchParams(window.location.search).get('token')
-    return urlToken ?? getShareToken(runId)
+    const stored = getShareToken(runId)
+    console.log('[clientShareToken]', { runId, urlToken, stored })
+    return urlToken ?? stored
   })
   const [copied, setCopied] = useState(false)
   const [copiedList, setCopiedList] = useState(false)
