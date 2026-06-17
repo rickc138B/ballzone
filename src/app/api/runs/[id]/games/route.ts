@@ -108,6 +108,21 @@ export async function POST(
       { onConflict: 'id' }
     )
 
+    // Clean up any orphaned live 0-0 games before creating new one
+    const { data: orphans } = await supabase
+      .from('games')
+      .select('id')
+      .eq('session_id', id)
+      .eq('status', 'live')
+      .eq('score_a', 0)
+      .eq('score_b', 0)
+    if (orphans && orphans.length > 0) {
+      await supabase
+        .from('games')
+        .update({ status: 'complete', ended_at: new Date().toISOString() })
+        .in('id', orphans.map(g => g.id))
+    }
+
     // Get next sequence number
     const { data: games } = await supabase
       .from('games')
