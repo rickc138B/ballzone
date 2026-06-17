@@ -62,24 +62,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   }, [sessionId])
 
   useEffect(() => {
-    // Retry fetchGame up to 5 times on initial load to handle PostgREST cache delay
-    let attempts = 0
-    const tryFetch = async () => {
-      await fetchGame()
-      attempts++
-      if (attempts < 5) {
-        setTimeout(async () => {
-          // Only retry if game still not loaded
-          setState(s => {
-            if (!s.game && !s.loading) {
-              tryFetch()
-            }
-            return s
-          })
-        }, 800)
-      }
-    }
-    tryFetch()
+    fetchGame()
     const supabase = getSupabase()
     const channel = supabase
       .channel(`session:${sessionId}`)
