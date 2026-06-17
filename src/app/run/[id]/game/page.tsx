@@ -114,13 +114,12 @@ export default function GamePage() {
   }, [game?.id])
 
   useEffect(() => {
-    if (state.loading) return
     if (game?.status === 'live' || game?.status === 'contested') {
       setupJustCompleted.current = false
       setNeedsSetup(false)
       if (teamA?.name) setTeamAName(teamA.name)
       if (teamB?.name) setTeamBName(teamB.name)
-    } else if (!settingUp && !setupJustCompleted.current && !game) {
+    } else if (!state.loading && !settingUp && !setupJustCompleted.current && !game) {
       setNeedsSetup(true)
     }
   }, [state.loading, game, teamA, teamB, settingUp])
