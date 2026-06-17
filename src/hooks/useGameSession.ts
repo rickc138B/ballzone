@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getSupabase } from '@/lib/supabase'
+import { getSupabase, createClient } from '@/lib/supabase'
 import type { Game, RunTeam, ScoreEvent, CourtConfig } from '@/lib/types'
 
 export interface GameState {
@@ -35,8 +35,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   const gameIdRef = useRef<string | null>(null)
 
   const fetchGame = useCallback(async () => {
-    const supabase = getSupabase()
-    console.log('[fetchGame] called with sessionId:', sessionId)
+    const supabase = createClient()
 
     const { data: games, error: gamesError } = await supabase
       .from('games')
