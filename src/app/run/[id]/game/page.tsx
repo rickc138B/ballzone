@@ -12,7 +12,10 @@ export default function GamePage() {
   const router = useRouter()
   const runId = params.id as string
   const [shareToken, setShareToken] = useState<string | null>(null)
-  const [isOrganizer, setIsOrganizer] = useState<boolean>(false)
+  const [isOrganizer, setIsOrganizer] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return isOrganizerOfRun(runId) || !!new URLSearchParams(window.location.search).get('token')
+  })
 
   useEffect(() => {
     const token = getShareToken(runId) ?? new URLSearchParams(window.location.search).get('token')
