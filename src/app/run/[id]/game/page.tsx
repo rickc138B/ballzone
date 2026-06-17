@@ -79,6 +79,8 @@ export default function GamePage() {
   const [players, setPlayers] = useState<{id: string, name: string}[]>([])
   const [attendees, setAttendees] = useState<{id: string, name: string}[]>([])
   const [walkInName, setWalkInName] = useState('')
+  const [liveAddName, setLiveAddName] = useState('')
+  const [showLiveAdd, setShowLiveAdd] = useState(false)
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
   const [showStartScore, setShowStartScore] = useState(false)
@@ -671,9 +673,50 @@ export default function GamePage() {
                   Miss
                 </button>
               </div>
+              {/* Add player on the fly */}
+              {showLiveAdd ? (
+                <div className="flex gap-2 mt-2">
+                  <input
+                    autoFocus
+                    value={liveAddName}
+                    onChange={e => setLiveAddName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && liveAddName.trim()) {
+                        const newPlayer = { id: `live_${Date.now()}`, name: liveAddName.trim() }
+                        setPlayers(prev => {
+                          const updated = [...prev, newPlayer]
+                          localStorage.setItem(`bz_players:${runId}`, JSON.stringify(updated))
+                          return updated
+                        })
+                        setTeamAssignments(prev => {
+                          const updated = { ...prev, [newPlayer.id]: pointSelector }
+                          localStorage.setItem(`bz_assignments:${runId}`, JSON.stringify(updated))
+                          return updated
+                        })
+                        setSelectedScorer(newPlayer.id)
+                        setLiveAddName('')
+                        setShowLiveAdd(false)
+                      }
+                    }}
+                    placeholder="Player name..."
+                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-orange-400"
+                  />
+                  <button
+                    onClick={() => { setShowLiveAdd(false); setLiveAddName('') }}
+                    className="px-3 py-2 text-white/30 text-sm"
+                  >Cancel</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowLiveAdd(true)}
+                  className="w-full mt-1 py-1.5 text-white/20 text-xs"
+                >
+                  + Add player
+                </button>
+              )}
               <button
-                onClick={() => { setPointSelector(null); setSelectedScorer(null) }}
-                className="w-full mt-2 py-2 text-white/30 text-sm"
+                onClick={() => { setPointSelector(null); setSelectedScorer(null); setShowLiveAdd(false) }}
+                className="w-full mt-1 py-2 text-white/30 text-sm"
               >
                 Cancel
               </button>
