@@ -632,7 +632,6 @@ export default function GamePage() {
                       <button
                         key={p.id}
                         onClick={() => setSelectedScorer(prev => prev === p.id ? null : p.id)}
-                        onContextMenu={e => { e.preventDefault(); setStatTarget({ side: pointSelector!, playerId: p.id, playerName: p.name }) }}
                         className={cn(
                           'px-3 py-1.5 rounded-xl text-sm font-semibold transition-all active:scale-95',
                           selectedScorer === p.id
@@ -658,6 +657,21 @@ export default function GamePage() {
                   />
                 )}
               </div>
+              {/* Stats button for selected player */}
+              {selectedScorer && sidePlayers.some(p => p.id === selectedScorer) && (
+                <div className="flex justify-center mb-2">
+                  <button
+                    onClick={() => {
+                      const p = sidePlayers.find(p => p.id === selectedScorer)
+                      if (p) setStatTarget({ side: pointSelector!, playerId: p.id, playerName: p.name })
+                    }}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-white/10 text-white/50 border border-white/20 active:scale-95 transition-transform"
+                  >
+                    📊 Record stat for {sidePlayers.find(p => p.id === selectedScorer)?.name}
+                  </button>
+                </div>
+              )}
+
               {/* Points */}
               <p className="text-white/40 text-xs text-center mb-2 uppercase tracking-wider">
                 {selectedScorer
