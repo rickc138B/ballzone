@@ -46,7 +46,13 @@ export default function GamePage() {
   const [needsSetup, setNeedsSetup] = useState(false)
   const [teamAName, setTeamAName] = useState('Team A')
   const [teamBName, setTeamBName] = useState('Team B')
-  const [teamAssignments, setTeamAssignments] = useState<Record<string, 'a' | 'b' | null>>({})
+  const [teamAssignments, setTeamAssignments] = useState<Record<string, 'a' | 'b' | null>>(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const saved = localStorage.getItem(`bz_assignments:${runId}`)
+      return saved ? JSON.parse(saved) : {}
+    } catch { return {} }
+  })
   const [settingUp, setSettingUp] = useState(false)
   const setupJustCompleted = useRef(false)
   const [players, setPlayers] = useState<{id: string, name: string}[]>([])
@@ -762,11 +768,13 @@ export default function GamePage() {
                 {isOrganizer && (
                   <button
                     onClick={() => {
-                        // Carry existing assignments into next game setup
-                        // (teamAssignments keyed by participant ID — still valid)
+                        // Save assignments so they persist into next game setup
+                        if (Object.keys(teamAssignments).length > 0) {
+                          localStorage.setItem(`bz_assignments:${runId}`, JSON.stringify(teamAssignments))
+                        }
                         setNeedsSetup(true)
-                        setTeamAName('Team A')
-                        setTeamBName('Team B')
+                        setTeamAName(teamA?.name ?? 'Team A')
+                        setTeamBName(teamB?.name ?? 'Team B')
                         setStartScoreA(0)
                         setStartScoreB(0)
                         setShowStartScore(false)
