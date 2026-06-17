@@ -160,8 +160,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       winner_team_id: winnerId,
     }).eq('id', state.game.id)
     // Fetch final score events so stats show on complete screen
-    const supabase = getSupabase()
-    const { data: finalEvents } = await supabase
+    const { data: finalEvents } = await getSupabase()
       .from('score_events')
       .select('*')
       .eq('game_id', state.game.id)
