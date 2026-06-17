@@ -43,6 +43,15 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       return
     }
     const game = games[0]
+    // Don't overwrite a live game with a different game from fetchGame
+    let shouldSkip = false
+    setState(s => {
+      if (s.game && s.game.status === 'live' && s.game.id !== game.id) {
+        shouldSkip = true
+      }
+      return s
+    })
+    if (shouldSkip) return
     gameIdRef.current = game.id
 
     const { data: events } = await supabase
