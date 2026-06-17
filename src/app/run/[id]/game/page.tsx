@@ -163,12 +163,15 @@ export default function GamePage() {
 
     if (!res.ok) { setSettingUp(false); return }
 
-    // Lock setup BEFORE fetchGame so the useEffect doesn't flip needsSetup back
+    // Use the game data the API already returned — no need to re-fetch
+    const data = await res.json()
     setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
+    // Still fetch to hydrate useGameSession state properly
     await fetchGame()
-    // Safety: clear the lock after 3s regardless
+    // If fetchGame raced and came back empty, force needsSetup off again
+    setNeedsSetup(false)
     setTimeout(() => { setupJustCompleted.current = false }, 3000)
   }
 

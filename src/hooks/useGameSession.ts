@@ -49,7 +49,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       setState(s => ({ ...s, loading: false }))
       return
     }
-    console.log('[fetchGame] Found game:', games[0].id, 'status:', games[0].status)
+    console.log('[fetchGame] Found game:', games[0].id, 'status:', games[0].status, 'session_id:', sessionId)
 
     const game = games[0]
     gameIdRef.current = game.id
