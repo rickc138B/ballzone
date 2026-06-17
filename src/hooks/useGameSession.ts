@@ -38,7 +38,8 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       .limit(1)
 
     if (!games || games.length === 0) {
-      setState(s => ({ ...s, loading: false }))
+      // Don't reset state if we already have a game loaded
+      setState(s => s.game ? s : { ...s, loading: false })
       return
     }
     const game = games[0]
