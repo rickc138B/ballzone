@@ -122,7 +122,7 @@ export default function HistoryPage() {
           {runs.map(run => (
             <Link
               key={run.run_id}
-              href={`/run/${run.run_id}`}
+              href={`/run/${run.run_id}${run.share_token ? `?token=${run.share_token}` : ''}`}
               className="card p-4 block active:scale-[0.98] transition-transform"
             >
               <div className="flex items-start justify-between mb-2">
