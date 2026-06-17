@@ -80,6 +80,7 @@ export default function GamePage() {
   const [walkInName, setWalkInName] = useState('')
   const [liveAddName, setLiveAddName] = useState('')
   const [showLiveAdd, setShowLiveAdd] = useState(false)
+  const [statTarget, setStatTarget] = useState<{side: 'a'|'b', playerId: string, playerName: string} | null>(null)
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
   const [showStartScore, setShowStartScore] = useState(false)
@@ -238,6 +239,19 @@ export default function GamePage() {
     setPointSelector(null)
     setSelectedScorer(null)
     setTimeout(() => setLastScored(null), 600)
+  }
+
+  async function recordStat(type: string) {
+    if (!statTarget) return
+    const { side, playerId, playerName } = statTarget
+    const isLocal = playerId.startsWith('walkin_') || playerId.startsWith('live_')
+    await actions.addScore(
+      side, 0,
+      isLocal ? undefined : playerId,
+      isLocal ? playerName : playerName,
+      type
+    )
+    setStatTarget(null)
   }
 
   const recentEvents = [...scoreEvents].reverse().filter(e => !e.voided).slice(0, 5)
@@ -618,6 +632,7 @@ export default function GamePage() {
                       <button
                         key={p.id}
                         onClick={() => setSelectedScorer(prev => prev === p.id ? null : p.id)}
+                        onContextMenu={e => { e.preventDefault(); setStatTarget({ side: pointSelector!, playerId: p.id, playerName: p.name }) }}
                         className={cn(
                           'px-3 py-1.5 rounded-xl text-sm font-semibold transition-all active:scale-95',
                           selectedScorer === p.id
@@ -910,6 +925,37 @@ export default function GamePage() {
             </div>
           </div>
         )}
+      {/* Stat recording modal */}
+      {statTarget && (
+        <div className="fixed inset-0 bg-black/80 flex flex-col justify-end z-50">
+          <div className="bg-[#1a1a1a] rounded-t-3xl p-5">
+            <p className="text-white font-bold text-lg mb-1">{statTarget.playerName}</p>
+            <p className="text-white/40 text-xs mb-4 uppercase tracking-wider">Record stat</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {[
+                { type: 'foul', label: '🟥 Foul' },
+                { type: 'block', label: '🛡 Block' },
+                { type: 'steal', label: '⚡ Steal' },
+                { type: 'rebound', label: '🏀 Rebound' },
+                { type: 'assist', label: '🎯 Assist' },
+                { type: 'turnover', label: '↩ Turnover' },
+              ].map(({ type, label }) => (
+                <button
+                  key={type}
+                  onClick={() => recordStat(type)}
+                  className="py-3 rounded-xl bg-white/10 text-white font-semibold text-sm active:scale-95 transition-transform"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setStatTarget(null)} className="w-full py-3 text-white/30 text-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Attribution modal */}
       {showAttribution && game && (
         <div className="fixed inset-0 bg-black/80 flex flex-col justify-end z-50">
