@@ -161,7 +161,7 @@ export default function GamePage() {
       body: JSON.stringify({ teamAName, teamBName, startScoreA, startScoreB }),
     })
 
-    if (!res.ok) { const e = await res.json().catch(() => ({})); alert('Setup failed: ' + (e.error ?? res.status)); setSettingUp(false); return }
+    if (!res.ok) { setSettingUp(false); return }
     if (token) saveShareToken(runId, token)
 
     const data = await res.json()
@@ -230,14 +230,6 @@ export default function GamePage() {
     return (
       <main className="min-h-dvh flex items-center justify-center">
         <div className="text-white/40 text-lg">Loading...</div>
-      </main>
-    )
-  }
-
-  if (state.error) {
-    return (
-      <main className="min-h-dvh flex items-center justify-center p-6">
-        <div className="text-red-400 text-sm text-center break-all">{state.error}</div>
       </main>
     )
   }
