@@ -43,15 +43,13 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       return
     }
     const game = games[0]
-    // Don't overwrite a live game with a different game from fetchGame
-    let shouldSkip = false
-    setState(s => {
-      if (s.game && s.game.status === 'live' && s.game.id !== game.id) {
-        shouldSkip = true
-      }
-      return s
-    })
-    if (shouldSkip) return
+    // Don't overwrite a live game with an older/different game
+    const currentGameId = gameIdRef.current
+    if (currentGameId && currentGameId !== game.id) {
+      // We have a game loaded - only switch if new game has higher sequence
+      const currentSeq = state.game?.sequence_number ?? 0
+      if (game.sequence_number <= currentSeq && state.game?.status === 'live') return
+    }
     gameIdRef.current = game.id
 
     const { data: events } = await supabase
