@@ -224,11 +224,11 @@ export default function GamePage() {
   }
 
   async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3 | 0) {
-    const isWalkIn = selectedScorer?.startsWith('walkin_') ?? false
-    const isParticipant = selectedScorer && !isWalkIn && players.some(p => p.id === selectedScorer)
-    const isTypedName = selectedScorer && !isWalkIn && !isParticipant
+    const isLocalPlayer = selectedScorer?.startsWith('walkin_') || selectedScorer?.startsWith('live_') ?? false
+    const isParticipant = selectedScorer && !isLocalPlayer && players.some(p => p.id === selectedScorer)
+    const isTypedName = selectedScorer && !isLocalPlayer && !isParticipant
     const participantId = isParticipant ? selectedScorer : undefined
-    const scorerName = isWalkIn
+    const scorerName = isLocalPlayer
       ? players.find(p => p.id === selectedScorer)?.name ?? undefined
       : isTypedName
       ? selectedScorer
