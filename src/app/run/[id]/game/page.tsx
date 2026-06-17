@@ -824,7 +824,6 @@ export default function GamePage() {
             </div>
           </div>
         )}
-      </main>
       {/* Attribution modal */}
       {showAttribution && game && (
         <div className="fixed inset-0 bg-black/80 flex flex-col justify-end z-50">
