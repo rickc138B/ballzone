@@ -187,5 +187,17 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     }).catch(() => {})
   }, [state.game, shareToken])
 
-  return { state, actions: { addScore, undo, flagDispute, resolveDispute, startGame, endGame }, fetchGame }
+  const hydrateGame = useCallback((game: any, teamA: any, teamB: any) => {
+    gameIdRef.current = game.id
+    setState({
+      game,
+      teamA,
+      teamB,
+      scoreEvents: [],
+      loading: false,
+      error: null,
+    })
+  }, [])
+
+  return { state, actions: { addScore, undo, flagDispute, resolveDispute, startGame, endGame }, fetchGame, hydrateGame }
 }
