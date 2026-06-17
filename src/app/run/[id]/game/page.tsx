@@ -161,7 +161,7 @@ export default function GamePage() {
       body: JSON.stringify({ teamAName, teamBName, startScoreA, startScoreB }),
     })
 
-    if (!res.ok) { setSettingUp(false); return }
+    if (!res.ok) { const e = await res.json().catch(() => ({})); alert('Setup failed: ' + (e.error ?? res.status)); setSettingUp(false); return }
     if (token) saveShareToken(runId, token)
 
     // Use the game data the API already returned — no need to re-fetch
