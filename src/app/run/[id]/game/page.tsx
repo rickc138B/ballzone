@@ -163,8 +163,8 @@ export default function GamePage() {
     // Lock setup BEFORE fetchGame so the useEffect doesn't flip needsSetup back
     setupJustCompleted.current = true
     setNeedsSetup(false)
-    await fetchGame()
     setSettingUp(false)
+    await fetchGame()
     // Safety: clear the lock after 3s regardless
     setTimeout(() => { setupJustCompleted.current = false }, 3000)
   }
