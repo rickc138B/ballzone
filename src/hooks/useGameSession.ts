@@ -36,6 +36,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
 
   const fetchGame = useCallback(async () => {
     const supabase = getSupabase()
+    console.log('[fetchGame] called with sessionId:', sessionId)
 
     const { data: games } = await supabase
       .from('games')
