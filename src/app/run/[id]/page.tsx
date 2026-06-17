@@ -46,7 +46,8 @@ export default function RunPage() {
   const [isOrganizer, setIsOrganizer] = useState(false)
   const [clientShareToken] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
-    return getShareToken(runId)
+    const urlToken = new URLSearchParams(window.location.search).get('token')
+    return urlToken ?? getShareToken(runId)
   })
   const [copied, setCopied] = useState(false)
   const [copiedList, setCopiedList] = useState(false)
