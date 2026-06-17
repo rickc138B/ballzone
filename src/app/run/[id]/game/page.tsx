@@ -169,9 +169,12 @@ export default function GamePage() {
     setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
-    // Still fetch to hydrate useGameSession state properly
+    // Wait for DB write to be visible, then fetch with retry
+    await new Promise(r => setTimeout(r, 600))
     await fetchGame()
-    // If fetchGame raced and came back empty, force needsSetup off again
+    // Retry once if game still not loaded
+    await new Promise(r => setTimeout(r, 600))
+    await fetchGame()
     setNeedsSetup(false)
     setTimeout(() => { setupJustCompleted.current = false }, 3000)
   }
