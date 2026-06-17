@@ -237,8 +237,19 @@ export default function GamePage() {
   }
 
 
-  // Setup screen
-  if (needsSetup && isOrganizer) {
+  // DEBUG
+ if (game && game.status !== 'live') {
+   return (
+     <main className="min-h-dvh flex items-center justify-center p-6">
+       <div className="text-yellow-400 text-sm text-center">
+         status={game.status} needsSetup={String(needsSetup)} isOrganizer={String(isOrganizer)}
+       </div>
+     </main>
+   )
+ }
+
+ // Setup screen
+ if (needsSetup && isOrganizer) {
     const unassigned = players.filter(p => !teamAssignments[p.id])
     const teamAPlayers = players.filter(p => teamAssignments[p.id] === 'a')
     const teamBPlayers = players.filter(p => teamAssignments[p.id] === 'b')
