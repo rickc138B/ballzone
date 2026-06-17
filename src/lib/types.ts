@@ -99,9 +99,10 @@ export interface ScoreEvent {
   id: string
   game_id: string
   team_id: string
-  points: 1 | 2 | 3
+  points: 0 | 1 | 2 | 3
   scored_by_player_id: string | null
   scorer_name: string | null
+  event_type: string
   timestamp: string
   voided: boolean
   voided_at: string | null
