@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useGameSession } from '@/hooks/useGameSession'
-import { getShareToken, isOrganizerOfRun } from '@/lib/session-token'
+import { getShareToken, isOrganizerOfRun, saveShareToken } from '@/lib/session-token'
 import { getSupabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
@@ -162,6 +162,7 @@ export default function GamePage() {
     })
 
     if (!res.ok) { setSettingUp(false); return }
+    if (token) saveShareToken(runId, token)
 
     // Use the game data the API already returned — no need to re-fetch
     const data = await res.json()
