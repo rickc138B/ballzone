@@ -143,7 +143,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   }, [state.game, state.scoreEvents])
 
   const flagDispute = useCallback(async () => {
-    if (!state.game || !shareToken) return
+    if (!state.game) return
     const supabase = getSupabase()
     await supabase
       .from('games')
@@ -152,7 +152,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   }, [state.game, shareToken])
 
   const resolveDispute = useCallback(async () => {
-    if (!state.game || !shareToken) return
+    if (!state.game) return
     const supabase = getSupabase()
     await supabase
       .from('games')
@@ -161,7 +161,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   }, [state.game, shareToken])
 
   const startGame = useCallback(async () => {
-    if (!state.game || !shareToken) return
+    if (!state.game) return
     const supabase = getSupabase()
     await supabase
       .from('games')
@@ -170,7 +170,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
   }, [state.game, shareToken])
 
   const endGame = useCallback(async () => {
-    if (!state.game || !shareToken) return
+    if (!state.game) return
     const { score_a, score_b, team_a_id, team_b_id, session_id } = state.game
     if (score_a === score_b) return  // don't end on a tie
     const winnerId = score_a > score_b ? team_a_id : team_b_id
