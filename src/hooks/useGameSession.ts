@@ -27,6 +27,8 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     game: null, teamA: null, teamB: null, scoreEvents: [], loading: true, error: null,
   })
   const gameIdRef = useRef<string | null>(null)
+  const gameSeqRef = useRef<number>(0)
+  const gameStatusRef = useRef<string | null>(null)
 
   const fetchGame = useCallback(async () => {
     const supabase = getSupabase()
@@ -46,11 +48,12 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     // Don't overwrite a live game with an older/different game
     const currentGameId = gameIdRef.current
     if (currentGameId && currentGameId !== game.id) {
-      // We have a game loaded - only switch if new game has higher sequence
-      const currentSeq = state.game?.sequence_number ?? 0
-      if (game.sequence_number <= currentSeq && state.game?.status === 'live') return
+      // Don't overwrite a live game with an older/same sequence game
+      if (gameStatusRef.current === 'live' && game.sequence_number <= gameSeqRef.current) return
     }
     gameIdRef.current = game.id
+    gameSeqRef.current = game.sequence_number
+    gameStatusRef.current = game.status
 
     const { data: events } = await supabase
       .from('score_events')
@@ -172,6 +175,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       .select('*')
       .eq('game_id', state.game.id)
       .order('timestamp', { ascending: true })
+    gameStatusRef.current = 'complete'
     setState(s => ({
       ...s,
       game: s.game ? { ...s.game, status: 'complete', winner_team_id: winnerId } : null,
@@ -186,6 +190,8 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
 
   const hydrateGame = useCallback((game: any, teamA: any, teamB: any) => {
     gameIdRef.current = game.id
+    gameSeqRef.current = game.sequence_number
+    gameStatusRef.current = game.status
     setState({
       game, teamA, teamB,
       scoreEvents: [],
