@@ -114,6 +114,17 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       scored_by_player_id: scorerParticipantId ?? null,
       scorer_name: scorerName ?? null,
     })
+    // Update score locally immediately for instant feedback
+    if (points > 0) {
+      setState(s => ({
+        ...s,
+        game: s.game ? {
+          ...s.game,
+          score_a: teamSide === 'a' ? s.game.score_a + points : s.game.score_a,
+          score_b: teamSide === 'b' ? s.game.score_b + points : s.game.score_b,
+        } : null,
+      }))
+    }
     await fetchGame()
   }, [state.game, fetchGame])
 
