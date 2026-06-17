@@ -28,7 +28,7 @@ export default function GamePage() {
     }
   }, [runId])
 
-  const { state, actions, fetchGame } = useGameSession(runId, shareToken)
+  const { state, actions, fetchGame, hydrateGame } = useGameSession(runId, shareToken)
   const { game, teamA, teamB, scoreEvents } = state
 
   const [pointSelector, setPointSelector] = useState<'a' | 'b' | null>(null)
@@ -164,18 +164,12 @@ export default function GamePage() {
     if (!res.ok) { const e = await res.json().catch(() => ({})); alert('Setup failed: ' + (e.error ?? res.status)); setSettingUp(false); return }
     if (token) saveShareToken(runId, token)
 
-    // Use the game data the API already returned — no need to re-fetch
     const data = await res.json()
     setupJustCompleted.current = true
     setNeedsSetup(false)
     setSettingUp(false)
-    // Wait for DB write to be visible, then fetch with retry
-    await new Promise(r => setTimeout(r, 600))
-    await fetchGame()
-    // Retry once if game still not loaded
-    await new Promise(r => setTimeout(r, 600))
-    await fetchGame()
-    setNeedsSetup(false)
+    hydrateGame(data.game, data.teamA, data.teamB)
+    setTimeout(() => { setupJustCompleted.current = false }, 3000)
     setTimeout(() => { setupJustCompleted.current = false }, 3000)
   }
 
