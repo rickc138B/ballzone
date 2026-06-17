@@ -55,6 +55,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     gameIdRef.current = game.id
     gameSeqRef.current = game.sequence_number
     gameStatusRef.current = game.status
+    gameRef.current = game
 
     const { data: events } = await supabase
       .from('score_events')
