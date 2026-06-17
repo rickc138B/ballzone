@@ -67,8 +67,7 @@ export default function GamePage() {
       .catch(() => {})
   }, [runId])
   useEffect(() => {
-    if (!runId || !needsSetup || restoredRef.current) return
-    restoredRef.current = true
+    if (!runId || !needsSetup) return
     try {
       const savedPlayers = localStorage.getItem(`bz_players:${runId}`)
       const savedAssignments = localStorage.getItem(`bz_assignments:${runId}`)
