@@ -637,11 +637,6 @@ export default function GamePage() {
         })()}
 
         {/* Controls */}
-        <div className="px-4 py-3 border-t border-white/10 space-y-2">
-          <div className="text-white/30 text-xs text-center">
-            isOrg={String(isOrganizer)} status={game?.status ?? 'null'} sid={runId}
-          </div>
-
           {/* Organizer controls */}
           {isOrganizer && (
             <div className="flex gap-2">
