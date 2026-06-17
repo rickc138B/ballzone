@@ -45,9 +45,11 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       .limit(1)
 
     if (!games || games.length === 0) {
+      console.error('[fetchGame] No games found for session_id:', sessionId)
       setState(s => ({ ...s, loading: false }))
       return
     }
+    console.log('[fetchGame] Found game:', games[0].id, 'status:', games[0].status)
 
     const game = games[0]
     gameIdRef.current = game.id
