@@ -147,8 +147,10 @@ export default function GamePage() {
     if (settingUp) return
     setSettingUp(true)
 
+    // Read token synchronously — don't rely on shareToken state which may not be set yet
+    const token = shareToken ?? getShareToken(runId) ?? new URLSearchParams(window.location.search).get('token')
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (shareToken) headers['x-share-token'] = shareToken
+    if (token) headers['x-share-token'] = token
 
     const res = await fetch(`/api/runs/${runId}/games`, {
       method: 'POST',
