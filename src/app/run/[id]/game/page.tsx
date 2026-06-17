@@ -236,6 +236,14 @@ export default function GamePage() {
     )
   }
 
+  if (state.error) {
+    return (
+      <main className="min-h-dvh flex items-center justify-center p-6">
+        <div className="text-red-400 text-sm text-center break-all">{state.error}</div>
+      </main>
+    )
+  }
+
   // Setup screen
   if (needsSetup && isOrganizer) {
     const unassigned = players.filter(p => !teamAssignments[p.id])
