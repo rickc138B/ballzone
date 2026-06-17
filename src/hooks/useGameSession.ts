@@ -197,7 +197,7 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     }).catch(() => {})
   }, [state.game, shareToken])
 
-  const hydrateGame = useCallback((game: any, teamA: any, teamB: any) => {
+  const hydrateGame = useCallback(async (game: any, teamA: any, teamB: any) => {
     gameIdRef.current = game.id
     setState({
       game,
@@ -207,6 +207,16 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       loading: false,
       error: null,
     })
+    // Fetch score events for this game so undo works
+    const supabase = createClient()
+    const { data: events } = await supabase
+      .from('score_events')
+      .select('*')
+      .eq('game_id', game.id)
+      .order('timestamp', { ascending: true })
+    if (events) {
+      setState(s => ({ ...s, scoreEvents: events }))
+    }
   }, [])
 
   return { state, actions: { addScore, undo, flagDispute, resolveDispute, startGame, endGame }, fetchGame, hydrateGame }
