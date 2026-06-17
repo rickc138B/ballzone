@@ -923,7 +923,11 @@ export default function GamePage() {
                     )}>
                       {isA ? (teamA?.name ?? 'Team A') : (teamB?.name ?? 'Team B')}
                     </span>
-                    <span className="text-white/40 text-sm">+{e.points}</span>
+                    <span className="text-white/40 text-sm">
+                      {(e as any).event_type && (e as any).event_type !== 'score' && (e as any).event_type !== 'miss'
+                        ? (e as any).event_type
+                        : e.points === 0 ? 'miss' : `+${e.points}`}
+                    </span>
                     {e.scorer_name && (
                       <span className="text-white/30 text-xs">{e.scorer_name}</span>
                     )}
