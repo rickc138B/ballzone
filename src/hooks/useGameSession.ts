@@ -133,7 +133,8 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
     const lastEvent = [...state.scoreEvents]
       .reverse()
       .find(e => !e.voided)
-    if (!lastEvent) return
+    console.log('[undo] scoreEvents:', state.scoreEvents.length, 'lastEvent:', lastEvent?.id)
+    if (!lastEvent) { alert('Nothing to undo. Events: ' + state.scoreEvents.length); return }
 
     const supabase = getSupabase()
     await supabase
