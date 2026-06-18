@@ -302,6 +302,13 @@ export default function LeaguePage() {
         >
           🏆 Leaderboard
         </Link>
+        <Link
+          href={`/league/${id}/bracket`}
+          className="w-full py-3 rounded-2xl font-bold text-sm bg-white/10 text-white
+                     border border-white/10 flex items-center justify-center active:bg-white/20"
+        >
+          🏆 Bracket
+        </Link>
       </div>
     </main>
   )

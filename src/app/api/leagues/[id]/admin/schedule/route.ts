@@ -8,7 +8,7 @@ export async function POST(
 ) {
   try {
     const { id: leagueId } = await params
-    const { pin, home_team, away_team, scheduled_at, location_name, round_label } = await req.json()
+    const { pin, home_team, away_team, scheduled_at, location_name, round_label, bracket_round, bracket_slot } = await req.json()
 
     if (!pin?.trim()) return NextResponse.json({ error: 'PIN required' }, { status: 400 })
     if (!home_team?.trim() || !away_team?.trim() || !scheduled_at)
@@ -70,6 +70,8 @@ export async function POST(
         played_at: scheduled_at,
         location_name: location_name?.trim() || null,
         round_label: round_label?.trim() || null,
+        bracket_round: bracket_round ?? null,
+        bracket_slot: bracket_slot ?? null,
         sequence_number: nextSeq,
         status: 'scheduled',
       })

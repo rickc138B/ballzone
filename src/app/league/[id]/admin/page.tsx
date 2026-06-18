@@ -21,11 +21,14 @@ type ScheduleForm = {
   time: string
   location_name: string
   round_label: string
+  bracket_round: string
+  bracket_slot: string
 }
 
 const emptyForm: ScheduleForm = {
   home_team: '', away_team: '', date: '', time: '',
   location_name: '', round_label: '',
+  bracket_round: '', bracket_slot: '',
 }
 
 export default function LeagueAdminPage() {
@@ -220,6 +223,10 @@ export default function LeagueAdminPage() {
                 </div>
                 {field('Location', 'location_name', 'text', 'e.g. Stadium (optional)')}
                 {field('Label', 'round_label', 'text', 'e.g. Game 2 (optional)')}
+                <div className="grid grid-cols-2 gap-3">
+                  {field('Bracket Round', 'bracket_round', 'number', '1=QF 2=SF 3=Final')}
+                  {field('Bracket Slot', 'bracket_slot', 'number', 'Position 1,2,3...')}
+                </div>
 
                 {scheduleError && <p className="text-red-400 text-sm">{scheduleError}</p>}
                 {scheduleSuccess && <p className="text-green-400 text-sm">{scheduleSuccess}</p>}
