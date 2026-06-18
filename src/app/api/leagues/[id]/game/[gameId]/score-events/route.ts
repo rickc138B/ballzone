@@ -37,7 +37,7 @@ export async function POST(
 ) {
   try {
     const { id: leagueId, gameId } = await params
-    const { pin, team, pts } = await req.json()
+    const { pin, team, pts, scorer_name } = await req.json()
 
     if (!['home', 'away'].includes(team) || ![1, 2, 3].includes(pts))
       return NextResponse.json({ error: 'Invalid event' }, { status: 400 })
@@ -48,7 +48,7 @@ export async function POST(
 
     const { data, error } = await supabase
       .from('game_score_events')
-      .insert({ league_game_id: gameId, team, pts })
+      .insert({ league_game_id: gameId, team, pts, ...(scorer_name ? { scorer_name } : {}) })
       .select('id, team, pts, created_at')
       .single()
 
