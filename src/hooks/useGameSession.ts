@@ -108,14 +108,17 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       }))
     }
 
-    await supabase.from('score_events').insert({
+    const { data: newEvent } = await supabase.from('score_events').insert({
       game_id: (gameRef.current ?? state.game)!.id,
       team_id: teamId,
       points,
       scored_by_player_id: scorerParticipantId ?? null,
       scorer_name: scorerName ?? null,
       event_type: eventType,
-    })
+    }).select().single()
+    if (newEvent) {
+      setState(s => ({ ...s, scoreEvents: [...s.scoreEvents, newEvent as ScoreEvent] }))
+    }
   }, [state.game])
 
   const undo = useCallback(async () => {
