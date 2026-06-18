@@ -260,6 +260,7 @@ export default function GamePage() {
     if (!statTarget) return
     const { side, playerId, playerName } = statTarget
     const isLocal = playerId.startsWith('walkin_') || playerId.startsWith('live_') || playerId.startsWith('profile_')
+    alert(`recordStat: type=${type} side=${side} player=${playerName} isLocal=${isLocal} gameStatus=${game?.status}`)
     await actions.addScore(
       side, 0,
       isLocal ? undefined : playerId,
