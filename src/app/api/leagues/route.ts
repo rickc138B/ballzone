@@ -34,16 +34,30 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const fingerprint = req.nextUrl.searchParams.get('fingerprint')
     const supabase = createServiceClient()
-    const { data, error } = await supabase
+
+    const { data: publicLeagues, error: e1 } = await supabase
       .from('leagues')
-      .select('id, title, season, location_name, created_at')
+      .select('id, title, season, location_name, created_at, is_public')
       .eq('is_public', true)
       .order('created_at', { ascending: false })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data ?? [])
+    if (e1) return NextResponse.json({ error: e1.message }, { status: 500 })
+
+    let privateLeagues: any[] = []
+    if (fingerprint) {
+      const { data: mine } = await supabase
+        .from('leagues')
+        .select('id, title, season, location_name, created_at, is_public')
+        .eq('is_public', false)
+        .eq('created_by', fingerprint)
+        .order('created_at', { ascending: false })
+      privateLeagues = (mine ?? []).filter(l => !(publicLeagues ?? []).find((p: any) => p.id === l.id))
+    }
+
+    return NextResponse.json({ public: publicLeagues ?? [], private: privateLeagues })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -9,6 +9,7 @@ type League = {
   season: string | null
   location_name: string | null
   created_at: string
+  is_public?: boolean
 }
 
 const STORAGE_KEY = 'followed_leagues'
@@ -26,15 +27,26 @@ function saveFollowed(ids: Set<string>) {
 
 export default function LeaguesPage() {
   const [leagues, setLeagues] = useState<League[]>([])
+  const [privateLeagues, setPrivateLeagues] = useState<League[]>([])
   const [loading, setLoading] = useState(true)
   const [followed, setFollowed] = useState<Set<string>>(new Set())
-  const [tab, setTab] = useState<'following' | 'all'>('following')
+  const [tab, setTab] = useState<'following' | 'all' | 'mine'>('following')
 
   useEffect(() => {
     setFollowed(getFollowed())
-    fetch('/api/leagues')
+    const fingerprint = localStorage.getItem('bz_fingerprint') ?? localStorage.getItem('fingerprint') ?? ''
+    const url = fingerprint ? `/api/leagues?fingerprint=${encodeURIComponent(fingerprint)}` : '/api/leagues'
+    fetch(url)
       .then(r => r.json())
-      .then(d => { setLeagues(Array.isArray(d) ? d : []); setLoading(false) })
+      .then(d => {
+        if (Array.isArray(d)) {
+          setLeagues(d)
+        } else {
+          setLeagues(d.public ?? [])
+          setPrivateLeagues(d.private ?? [])
+        }
+        setLoading(false)
+      })
   }, [])
 
   function toggleFollow(id: string, e: React.MouseEvent) {
@@ -58,7 +70,7 @@ export default function LeaguesPage() {
   }
 
   const followedLeagues = leagues.filter(l => followed.has(l.id))
-  const displayed = tab === 'following' ? followedLeagues : leagues
+  const displayed = tab === 'following' ? followedLeagues : tab === 'mine' ? privateLeagues : leagues
 
   return (
     <main className="min-h-dvh flex flex-col p-5 max-w-lg mx-auto pb-10">
@@ -86,7 +98,7 @@ export default function LeaguesPage() {
       </div>
 
       <div className="flex gap-2 mb-5">
-        {(['following', 'all'] as const).map(t => (
+        {(['following', 'all', 'mine'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -95,7 +107,7 @@ export default function LeaguesPage() {
           >
             {t === 'following'
               ? (followedLeagues.length > 0 ? `🔔 Following (${followedLeagues.length})` : '🔔 Following')
-              : '🌐 All Leagues'}
+              : t === 'all' ? '🌐 All Leagues' : `🔒 Mine${privateLeagues.length > 0 ? ` (${privateLeagues.length})` : ''}`}
           </button>
         ))}
       </div>
@@ -108,11 +120,12 @@ export default function LeaguesPage() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="text-4xl mb-4">🏆</div>
           <p className="text-white font-bold text-lg mb-1">
-            {tab === 'following' ? 'No leagues followed yet' : 'No leagues yet'}
+            {tab === 'following' ? 'No leagues followed yet' : tab === 'mine' ? 'No private leagues' : 'No leagues yet'}
           </p>
           <p className="text-white/40 text-sm mb-6">
             {tab === 'following'
               ? 'Tap the 🔔 on any league to follow it'
+              : tab === 'mine' ? 'Leagues you create privately appear here'
               : 'Be the first to create one'}
           </p>
           {tab === 'following' && (
