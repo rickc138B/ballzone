@@ -81,7 +81,6 @@ export function useGameSession(sessionId: string, shareToken: string | null) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `session_id=eq.${sessionId}` }, () => fetchGame())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'score_events' }, (payload) => {
         if (payload.new.game_id === gameIdRef.current) {
-          setState(s => ({ ...s, scoreEvents: [...s.scoreEvents, payload.new as ScoreEvent] }))
           fetchGame()
         }
       })
