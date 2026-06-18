@@ -295,6 +295,13 @@ export default function LeaguePage() {
         >
           📋 Add Game Result
         </Link>
+        <Link
+          href={`/league/${id}/leaderboard`}
+          className="w-full py-3 rounded-2xl font-bold text-sm bg-white/10 text-white
+                     border border-white/10 flex items-center justify-center active:bg-white/20"
+        >
+          🏆 Leaderboard
+        </Link>
       </div>
     </main>
   )
