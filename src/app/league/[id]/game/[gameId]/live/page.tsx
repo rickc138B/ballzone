@@ -12,6 +12,7 @@ const supabase = createClient(
 
 type Team = { id: string; name: string }
 type ScoreEvent = { id: string; team: 'home' | 'away'; pts: number }
+type ServerScoreEvent = { id: string; team: 'home' | 'away'; pts: number; created_at: string }
 type PlayerRow = { name: string; team_id: string; pts: number; reb: number; ast: number; stl: number; blk: number; tov: number }
 type GameInfo = {
   id: string; status: string; round_label: string | null
@@ -50,18 +51,30 @@ export default function LiveScoringPage() {
   const [uploadError, setUploadError] = useState('')
 
   useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/game/${gameId}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.id) {
-          setGame(d)
-          setGameStatus(d.status ?? 'scheduled')
+    Promise.all([
+      fetch(`/api/leagues/${leagueId}/game/${gameId}`).then(r => r.json()),
+      fetch(`/api/leagues/${leagueId}/game/${gameId}/score-events`).then(r => r.json()),
+    ]).then(([d, ev]) => {
+      if (d.id) {
+        setGame(d)
+        setGameStatus(d.status ?? 'scheduled')
+        setRecapUrl(d.recap_image_url ?? null)
+
+        const serverEvents: ServerScoreEvent[] = ev.events ?? []
+        if (serverEvents.length > 0) {
+          // Rebuild running score + feed from the event log (source of truth for live games)
+          const home = serverEvents.filter(e => e.team === 'home').reduce((s, e) => s + e.pts, 0)
+          const away = serverEvents.filter(e => e.team === 'away').reduce((s, e) => s + e.pts, 0)
+          setHomeScore(home)
+          setAwayScore(away)
+          setEvents(serverEvents.map(e => ({ id: e.id, team: e.team, pts: e.pts })))
+        } else {
           setHomeScore(d.home_score ?? 0)
           setAwayScore(d.away_score ?? 0)
-          setRecapUrl(d.recap_image_url ?? null)
         }
-        setLoading(false)
-      })
+      }
+      setLoading(false)
+    })
   }, [leagueId, gameId])
 
   async function verifyPin() {
@@ -83,22 +96,51 @@ export default function LiveScoringPage() {
     setGameStatus('live')
   }
 
-  function score(side: 'home' | 'away', pts: 1 | 2 | 3) {
+  async function score(side: 'home' | 'away', pts: 1 | 2 | 3) {
+    // Optimistic local update for instant feedback
     if (side === 'home') setHomeScore(s => s + pts)
     else setAwayScore(s => s + pts)
-    const id = Math.random().toString(36).slice(2)
-    setEvents(ev => [{ id, team: side, pts }, ...ev])
+    const tempId = `temp-${Math.random().toString(36).slice(2)}`
+    setEvents(ev => [{ id: tempId, team: side, pts }, ...ev])
     setLastScored(side)
     setTapping(null)
     setTimeout(() => setLastScored(null), 500)
+
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/game/${gameId}/score-events`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, team: side, pts }),
+      })
+      const data = await res.json()
+      if (data.event) {
+        // Swap the temp id for the real server id so undo targets the right row
+        setEvents(ev => ev.map(e => e.id === tempId ? { id: data.event.id, team: side, pts } : e))
+      } else {
+        throw new Error(data.error ?? 'Failed to record')
+      }
+    } catch {
+      // Roll back the optimistic update if the write failed
+      if (side === 'home') setHomeScore(s => Math.max(0, s - pts))
+      else setAwayScore(s => Math.max(0, s - pts))
+      setEvents(ev => ev.filter(e => e.id !== tempId))
+    }
   }
 
-  function undo() {
+  async function undo() {
     const [last, ...rest] = events
     if (!last) return
     if (last.team === 'home') setHomeScore(s => Math.max(0, s - last.pts))
     else setAwayScore(s => Math.max(0, s - last.pts))
     setEvents(rest)
+
+    try {
+      await fetch(`/api/leagues/${leagueId}/game/${gameId}/score-events`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, eventId: last.id.startsWith('temp-') ? undefined : last.id }),
+      })
+    } catch {
+      // Best-effort — local state is already reverted; a later reload will resync from the server log
+    }
   }
 
   function addPlayer() {
@@ -107,9 +149,16 @@ export default function LiveScoringPage() {
 
   async function finishGame() {
     setFinishing(true)
+
+    // Final score is always derived from the event log, not from whatever
+    // homeScore/awayScore state happens to hold — the event log is the
+    // single source of truth, so this can't drift from it.
+    const finalHome = events.filter(e => e.team === 'home').reduce((s, e) => s + e.pts, 0)
+    const finalAway = events.filter(e => e.team === 'away').reduce((s, e) => s + e.pts, 0)
+
     await fetch(`/api/leagues/${leagueId}/game/${gameId}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin, status: 'complete', home_score: homeScore, away_score: awayScore }),
+      body: JSON.stringify({ pin, status: 'complete', home_score: finalHome, away_score: finalAway }),
     })
     const filledPlayers = players.filter(p => p.name.trim() && p.team_id)
     if (filledPlayers.length > 0) {
@@ -118,6 +167,8 @@ export default function LiveScoringPage() {
         body: JSON.stringify({ pin, players: filledPlayers }),
       })
     }
+    setHomeScore(finalHome)
+    setAwayScore(finalAway)
     setGameStatus('complete')
     setFinishing(false)
     setFinished(true)
