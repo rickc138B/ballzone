@@ -13,6 +13,7 @@ const supabase = createClient(
 type Team = { id: string; name: string }
 type ScoreEvent = { id: string; team: 'home' | 'away'; pts: number }
 type ServerScoreEvent = { id: string; team: 'home' | 'away'; pts: number; created_at: string }
+type LeaguePlayer = { id: string; display_name: string }
 type PlayerRow = { name: string; team_id: string; pts: number; reb: number; ast: number; stl: number; blk: number; tov: number }
 type GameInfo = {
   id: string; status: string; round_label: string | null
@@ -30,12 +31,15 @@ export default function LiveScoringPage() {
   const [verifying, setVerifying] = useState(false)
 
   const [game, setGame] = useState<GameInfo | null>(null)
+  const [rosterHome, setRosterHome] = useState<LeaguePlayer[]>([])
+  const [rosterAway, setRosterAway] = useState<LeaguePlayer[]>([])
   const [loading, setLoading] = useState(true)
 
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
   const [events, setEvents] = useState<ScoreEvent[]>([])
   const [tapping, setTapping] = useState<'home' | 'away' | null>(null)
+  const [selectedScorer, setSelectedScorer] = useState<string | null>(null)
   const [lastScored, setLastScored] = useState<'home' | 'away' | null>(null)
   const [gameStatus, setGameStatus] = useState('scheduled')
 
@@ -57,6 +61,10 @@ export default function LiveScoringPage() {
     ]).then(([d, ev]) => {
       if (d.id) {
         setGame(d)
+        setRosterHome(d.home_team?.players ?? [])
+        setRosterAway(d.away_team?.players ?? [])
+        setRosterHome(d.home_team?.players ?? [])
+        setRosterAway(d.away_team?.players ?? [])
         setGameStatus(d.status ?? 'scheduled')
         setRecapUrl(d.recap_image_url ?? null)
 
@@ -96,7 +104,7 @@ export default function LiveScoringPage() {
     setGameStatus('live')
   }
 
-  async function score(side: 'home' | 'away', pts: 1 | 2 | 3) {
+  async function score(side: 'home' | 'away', pts: 1 | 2 | 3, scorerName?: string) {
     // Optimistic local update for instant feedback
     if (side === 'home') setHomeScore(s => s + pts)
     else setAwayScore(s => s + pts)
@@ -109,7 +117,7 @@ export default function LiveScoringPage() {
     try {
       const res = await fetch(`/api/leagues/${leagueId}/game/${gameId}/score-events`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, team: side, pts }),
+        body: JSON.stringify({ pin, team: side, pts, scorer_name: scorerName }),
       })
       const data = await res.json()
       if (data.event) {
@@ -315,7 +323,7 @@ export default function LiveScoringPage() {
           className={`flex-1 flex flex-col items-center justify-center transition-all duration-150
             ${lastScored === 'home' ? 'bg-green-500/10' : ''}
             ${gameStatus === 'live' ? 'active:opacity-70' : 'cursor-default'}`}
-          onClick={() => gameStatus === 'live' && setTapping(t => t === 'home' ? null : 'home')}
+          onClick={() => { if (gameStatus === 'live') { setTapping(t => t === 'home' ? null : 'home'); setSelectedScorer(null) } }}
           disabled={gameStatus !== 'live'}
         >
           <div className="text-white/50 text-sm font-semibold mb-2 uppercase tracking-wider px-3 text-center">
@@ -336,7 +344,7 @@ export default function LiveScoringPage() {
           className={`flex-1 flex flex-col items-center justify-center transition-all duration-150
             ${lastScored === 'away' ? 'bg-orange-500/10' : ''}
             ${gameStatus === 'live' ? 'active:opacity-70' : 'cursor-default'}`}
-          onClick={() => gameStatus === 'live' && setTapping(t => t === 'away' ? null : 'away')}
+          onClick={() => { if (gameStatus === 'live') { setTapping(t => t === 'away' ? null : 'away'); setSelectedScorer(null) } }}
           disabled={gameStatus !== 'live'}
         >
           <div className="text-white/50 text-sm font-semibold mb-2 uppercase tracking-wider px-3 text-center">
@@ -352,27 +360,58 @@ export default function LiveScoringPage() {
         </button>
       </div>
 
-      {tapping && gameStatus === 'live' && (
-        <div className="px-4 py-3 bg-white/5 border-t border-white/10">
-          <p className="text-white/30 text-xs text-center mb-3 uppercase tracking-wider">
-            {tapping === 'home' ? game.home_team.name : game.away_team.name} scored...
-          </p>
-          <div className="flex gap-3">
-            {([1, 2, 3] as const).map(pts => (
-              <button key={pts} onClick={() => score(tapping, pts)}
-                className={`flex-1 py-4 rounded-2xl font-black text-2xl active:scale-95 transition-transform
-                  ${tapping === 'home'
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'}`}>
-                {pts}
-              </button>
-            ))}
+      {tapping && gameStatus === 'live' && (() => {
+        const roster = tapping === 'home' ? rosterHome : rosterAway
+        const scorerPlayer = roster.find(p => p.id === selectedScorer)
+        const teamName = tapping === 'home' ? game.home_team.name : game.away_team.name
+        const isHome = tapping === 'home'
+        return (
+          <div className="px-4 py-3 bg-white/5 border-t border-white/10">
+            {roster.length > 0 && (
+              <div className="mb-3">
+                <p className="text-white/30 text-xs text-center mb-2 uppercase tracking-wider">
+                  Who scored? (optional)
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {roster.map(p => (
+                    <button key={p.id}
+                      onClick={() => setSelectedScorer(prev => prev === p.id ? null : p.id)}
+                      className={[
+                        'px-3 py-1.5 rounded-xl text-sm font-semibold transition-all active:scale-95',
+                        selectedScorer === p.id
+                          ? isHome ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
+                          : 'bg-white/10 text-white/60 border border-white/10'
+                      ].join(' ')}>
+                      {p.display_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-white/40 text-xs text-center mb-2 uppercase tracking-wider">
+              {scorerPlayer ? scorerPlayer.display_name + ' scored...' : teamName + ' scored...'}
+            </p>
+            <div className="flex gap-3">
+              {([1, 2, 3] as const).map(pts => (
+                <button key={pts}
+                  onClick={() => { score(tapping, pts, scorerPlayer?.display_name); setSelectedScorer(null) }}
+                  className={[
+                    'flex-1 py-4 rounded-2xl font-black text-2xl active:scale-95 transition-transform',
+                    isHome
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                  ].join(' ')}>
+                  {pts}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => { setTapping(null); setSelectedScorer(null) }}
+              className="w-full mt-2 py-2 text-white/30 text-sm">
+              Cancel
+            </button>
           </div>
-          <button onClick={() => setTapping(null)} className="w-full mt-2 py-2 text-white/30 text-sm">
-            Cancel
-          </button>
-        </div>
-      )}
+        )
+      })()}
 
       <div className="px-4 py-3 border-t border-white/10 space-y-2">
         {gameStatus === 'scheduled' && (
