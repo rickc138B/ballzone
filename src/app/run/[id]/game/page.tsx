@@ -240,7 +240,7 @@ export default function GamePage() {
   }
 
   async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3 | 0) {
-    const isLocalPlayer = (selectedScorer?.startsWith('walkin_') || selectedScorer?.startsWith('live_')) ?? false
+    const isLocalPlayer = (selectedScorer?.startsWith('walkin_') || selectedScorer?.startsWith('live_') || selectedScorer?.startsWith('profile_')) ?? false
     const isParticipant = selectedScorer && !isLocalPlayer && players.some(p => p.id === selectedScorer)
     const isTypedName = selectedScorer && !isLocalPlayer && !isParticipant
     const participantId = isParticipant ? selectedScorer : undefined
@@ -259,7 +259,7 @@ export default function GamePage() {
   async function recordStat(type: string) {
     if (!statTarget) return
     const { side, playerId, playerName } = statTarget
-    const isLocal = playerId.startsWith('walkin_') || playerId.startsWith('live_')
+    const isLocal = playerId.startsWith('walkin_') || playerId.startsWith('live_') || playerId.startsWith('profile_')
     await actions.addScore(
       side, 0,
       isLocal ? undefined : playerId,
@@ -372,8 +372,9 @@ export default function GamePage() {
                   key={p.id}
                   onClick={() => {
                     const name = p.display_name ?? p.username ?? 'Unknown'
-                    setPlayers(prev => [...prev, { id: p.id, name }])
-                    setTeamAssignments(prev => ({ ...prev, [p.id]: null }))
+                    const pid = `profile_${p.id}`
+                    setPlayers(prev => [...prev, { id: pid, name }])
+                    setTeamAssignments(prev => ({ ...prev, [pid]: null }))
                     setProfileSearch('')
                     setProfileResults([])
                   }}
