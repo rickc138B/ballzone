@@ -91,7 +91,7 @@ export default function NewLeaguePage() {
           />
         </div>
 
-        {error {error && <p className="text-red-400 text-sm">{error}</p>}{error && <p className="text-red-400 text-sm">{error}</p>} <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
 
         <button
           onClick={() => setIsPublic(p => !p)}
