@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -74,7 +74,7 @@ export default function BracketPage() {
 
   // SVG connector lines between rounds
   function renderConnectors() {
-    const lines: JSX.Element[] = []
+    const lines: React.ReactElement[] = []
     for (let ri = 0; ri < roundNums.length - 1; ri++) {
       const fromRound = roundNums[ri]
       const toRound = roundNums[ri + 1]
