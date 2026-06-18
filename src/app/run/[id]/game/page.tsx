@@ -240,7 +240,7 @@ export default function GamePage() {
   }
 
   async function scorePoints(side: 'a' | 'b', points: 1 | 2 | 3 | 0) {
-    const isLocalPlayer = (selectedScorer?.startsWith('walkin_') || selectedScorer?.startsWith('live_') || selectedScorer?.startsWith('profile_')) ?? false
+    const isLocalPlayer = (selectedScorer?.startsWith('walkin_') || selectedScorer?.startsWith('live_') || selectedScorer?.startsWith('profile_') || (selectedScorer?.includes('-') && selectedScorer?.length > 30)) ?? false
     const isParticipant = selectedScorer && !isLocalPlayer && players.some(p => p.id === selectedScorer)
     const isTypedName = selectedScorer && !isLocalPlayer && !isParticipant
     const participantId = isParticipant ? selectedScorer : undefined
@@ -259,7 +259,7 @@ export default function GamePage() {
   async function recordStat(type: string) {
     if (!statTarget) return
     const { side, playerId, playerName } = statTarget
-    const isLocal = playerId.startsWith('walkin_') || playerId.startsWith('live_') || playerId.startsWith('profile_')
+    const isLocal = playerId.startsWith('walkin_') || playerId.startsWith('live_') || playerId.startsWith('profile_') || (playerId.includes('-') && playerId.length > 30)
     alert(`recordStat: type=${type} side=${side} player=${playerName} isLocal=${isLocal} gameStatus=${game?.status}`)
     await actions.addScore(
       side, 0,
