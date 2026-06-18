@@ -166,6 +166,9 @@ export default function LeagueAdminPage() {
         <div className="text-3xl mb-2">🔐</div>
         <h1 className="text-2xl font-black text-white">Admin</h1>
         <p className="text-white/40 text-sm mt-1">Manage players and claim codes</p>
+        <Link href={`/league/${leagueId}/admin/dashboard`} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 text-sm font-semibold active:opacity-70">
+          📊 Game Dashboard
+        </Link>
       </div>
 
       {!verified ? (
