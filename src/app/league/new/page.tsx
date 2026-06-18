@@ -12,6 +12,7 @@ export default function NewLeaguePage() {
   const [adminPin, setAdminPin] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [isPublic, setIsPublic] = useState(false)
 
   async function create() {
     if (!title.trim()) return
@@ -19,7 +20,7 @@ export default function NewLeaguePage() {
     const res = await fetch('/api/leagues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, season, location_name: location, description, admin_pin: adminPin }),
+      body: JSON.stringify({ title, season, location_name: location, description, admin_pin: adminPin, is_public: isPublic }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error); setSaving(false); return }
@@ -90,7 +91,18 @@ export default function NewLeaguePage() {
           />
         </div>
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error {error && <p className="text-red-400 text-sm">{error}</p>}{error && <p className="text-red-400 text-sm">{error}</p>} <p className="text-red-400 text-sm">{error}</p>}
+
+        <button
+          onClick={() => setIsPublic(p => !p)}
+          className={`w-full py-3 rounded-2xl font-semibold text-sm border transition-all ${
+            isPublic
+              ? 'bg-green-500/20 border-green-500/40 text-green-400'
+              : 'bg-white/10 border-white/20 text-white/50'
+          }`}
+        >
+          {isPublic ? '🌍 Public — appears in league directory' : '🔒 Private — accessible by link only'}
+        </button>
 
         <button
           onClick={create}
