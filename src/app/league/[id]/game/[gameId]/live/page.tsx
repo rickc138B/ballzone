@@ -61,10 +61,10 @@ export default function LiveScoringPage() {
     ]).then(([d, ev]) => {
       if (d.id) {
         setGame(d)
-        setRosterHome(d.home_team?.players ?? [])
-        setRosterAway(d.away_team?.players ?? [])
-        setRosterHome(d.home_team?.players ?? [])
-        setRosterAway(d.away_team?.players ?? [])
+        const homeId = d.home_team?.id
+        const awayId = d.away_team?.id
+        if (homeId) fetch(`/api/leagues/${leagueId}/team/${homeId}`).then(r => r.json()).then(t => setRosterHome(t.players ?? []))
+        if (awayId) fetch(`/api/leagues/${leagueId}/team/${awayId}`).then(r => r.json()).then(t => setRosterAway(t.players ?? []))
         setGameStatus(d.status ?? 'scheduled')
         setRecapUrl(d.recap_image_url ?? null)
 
