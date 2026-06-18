@@ -80,6 +80,9 @@ export default function GamePage() {
   const [walkInName, setWalkInName] = useState('')
   const [liveAddName, setLiveAddName] = useState('')
   const [showLiveAdd, setShowLiveAdd] = useState(false)
+  const [profileSearch, setProfileSearch] = useState('')
+  const [profileResults, setProfileResults] = useState<{id: string, display_name: string, username: string | null, avatar_url: string | null}[]>([])
+  const [searchingProfiles, setSearchingProfiles] = useState(false)
   const [statTarget, setStatTarget] = useState<{side: 'a'|'b', playerId: string, playerName: string} | null>(null)
   const [startScoreA, setStartScoreA] = useState(0)
   const [startScoreB, setStartScoreB] = useState(0)
@@ -164,6 +167,18 @@ export default function GamePage() {
     setTeamAssignments(prev => ({ ...prev, [id]: null }))
     setWalkInName('')
   }
+
+  useEffect(() => {
+    if (profileSearch.length < 2) { setProfileResults([]); return }
+    setSearchingProfiles(true)
+    const timer = setTimeout(async () => {
+      const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(profileSearch)}`)
+      const data = await res.json()
+      setProfileResults(data)
+      setSearchingProfiles(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [profileSearch])
 
   function toggleAssignment(playerId: string) {
     setTeamAssignments(prev => {
@@ -338,9 +353,49 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* Walk-in add */}
+        {/* Player search */}
         <div className="mb-5">
-          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Add walk-in</p>
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Search players</p>
+          <input
+            value={profileSearch}
+            onChange={e => setProfileSearch(e.target.value)}
+            placeholder="Search by username or name..."
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5
+                       text-white placeholder:text-white/30 focus:outline-none
+                       focus:border-orange-500 text-sm mb-2"
+          />
+          {searchingProfiles && <p className="text-white/30 text-xs text-center">Searching...</p>}
+          {profileResults.length > 0 && (
+            <div className="space-y-1">
+              {profileResults.filter(p => !players.some(pl => pl.id === p.id)).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    const name = p.display_name ?? p.username ?? 'Unknown'
+                    setPlayers(prev => [...prev, { id: p.id, name }])
+                    setTeamAssignments(prev => ({ ...prev, [p.id]: null }))
+                    setProfileSearch('')
+                    setProfileResults([])
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-white/10 border border-white/10 active:scale-95 transition-transform"
+                >
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                    {(p.display_name ?? p.username ?? '?')[0].toUpperCase()}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-white text-sm font-semibold">{p.display_name ?? p.username}</p>
+                    {p.username && <p className="text-white/40 text-xs">@{p.username}</p>}
+                  </div>
+                  <span className="ml-auto text-white/30 text-sm">+ Add</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Walk-in add (no account) */}
+        <div className="mb-5">
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">No account? Add by name</p>
           <div className="flex gap-2">
             <input
               value={walkInName}
