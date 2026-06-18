@@ -337,6 +337,7 @@ export default function LeagueGamePage() {
                   ftm: p.ftm, fta: p.fta,
                   fg_pct: p.fga > 0 ? ((p.fgm/p.fga)*100).toFixed(1)+'%' : '—',
                 }))
+                if (!game) return null
                 const payload = {
                   game: { round_label: game.round_label, played_at: game.played_at, location: game.location_name },
                   home_team: { name: game.home_team.name, score: game.home_team.score, players: fmt(game.home_team.players ?? []) },
