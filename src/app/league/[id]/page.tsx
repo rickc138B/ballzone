@@ -43,6 +43,7 @@ type LeagueData = {
   status: string | null; description: string | null }
   games: Game[]
   standings: Standing[]
+  hasBracket?: boolean
 }
 
 export default function LeaguePage() {
@@ -302,6 +303,7 @@ export default function LeaguePage() {
         >
           🏆 Leaderboard
         </Link>
+        {data.hasBracket && (
         <Link
           href={`/league/${id}/bracket`}
           className="w-full py-3 rounded-2xl font-bold text-sm bg-white/10 text-white
@@ -309,6 +311,7 @@ export default function LeaguePage() {
         >
           🏆 Bracket
         </Link>
+        )}
       </div>
     </main>
   )

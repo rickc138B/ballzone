@@ -59,7 +59,8 @@ export async function GET(
       .map(([id, s]) => ({ id, ...s, gp: s.w + s.l }))
       .sort((a, b) => b.w - a.w || (b.pts_for - b.pts_against) - (a.pts_for - a.pts_against))
 
-    return NextResponse.json({ league, games: games ?? [], standings: standingsList })
+    const hasBracket = (games ?? []).some((g: any) => g.bracket_round != null)
+    return NextResponse.json({ league, games: games ?? [], standings: standingsList, hasBracket })
   } catch (err) {
     console.error('GET league error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
