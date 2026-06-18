@@ -161,6 +161,7 @@ export default function LeagueGamePage() {
   const isScheduled = game.home_team.score === null && game.away_team.score === null
   const homeWon = !isScheduled && game.home_team.score > game.away_team.score
   const displayTeam = activeTeam === 'home' ? game.home_team : game.away_team
+  const [copiedBox, setCopiedBox] = useState(false)
   const topScorer = [...(game.home_team.players ?? []), ...(game.away_team.players ?? [])]
     .sort((a, b) => b.pts - a.pts)[0]
 
@@ -326,6 +327,37 @@ export default function LeagueGamePage() {
                 )
               })}
             </div>
+            {/* Export box score */}
+            {(() => {
+              function exportBoxScore() {
+                const fmt = (players: any[]) => players.sort((a,b) => b.pts - a.pts).map(p => ({
+                  name: p.display_name,
+                  pts: p.pts, reb: p.reb, ast: p.ast, stl: p.stl, blk: p.blk, tov: p.tov,
+                  fgm: p.fgm, fga: p.fga, three_pm: p.three_pm, three_pa: p.three_pa,
+                  ftm: p.ftm, fta: p.fta,
+                  fg_pct: p.fga > 0 ? ((p.fgm/p.fga)*100).toFixed(1)+'%' : '—',
+                }))
+                const payload = {
+                  game: { round_label: game.round_label, played_at: game.played_at, location: game.location_name },
+                  home_team: { name: game.home_team.name, score: game.home_team.score, players: fmt(game.home_team.players ?? []) },
+                  away_team: { name: game.away_team.name, score: game.away_team.score, players: fmt(game.away_team.players ?? []) },
+                }
+                const json = JSON.stringify(payload, null, 2)
+                if (navigator.share) {
+                  navigator.share({ title: `Box Score · ${game.home_team.name} vs ${game.away_team.name}`, text: json })
+                } else {
+                  navigator.clipboard.writeText(json)
+                  setCopiedBox(true)
+                  setTimeout(() => setCopiedBox(false), 2000)
+                }
+              }
+              return (
+                <button onClick={exportBoxScore}
+                  className="w-full mb-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/50 text-xs font-semibold active:bg-white/10 flex items-center justify-center gap-2">
+                  {copiedBox ? '✓ Copied to clipboard' : '📋 Export Box Score JSON'}
+                </button>
+              )
+            })()}
             <div className="card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
