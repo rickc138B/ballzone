@@ -9,7 +9,7 @@ const NAV = [
   { href: '/leagues',   emoji: '🏆',  label: 'Leagues',  desc: 'Organised seasons' },
   { href: '/history',   emoji: '📋',  label: 'History',  desc: 'Past games' },
   { href: '/profile',   emoji: '👤',  label: 'Profile',  desc: 'Your account' },
-  { href: '/pro/nba',    emoji: '🏀',  label: 'NBA',      desc: 'Pro stats' },
+  { href: '/pro',        emoji: '🏀',  label: 'Pro',      desc: 'Leagues & stats' },
   { href: '/notifications', emoji: '🔔', label: 'Notifications', desc: 'Your alerts' },
 ]
 
