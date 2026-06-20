@@ -219,10 +219,16 @@ export default function ProLeaguePage() {
   const [tab, setTab] = useState<'leaders' | 'teams' | 'games' | 'clips'>('leaders')
   const [statCat, setStatCat] = useState<StatCat>('pts')
 
+  const [debugError, setDebugError] = useState<string | null>(null)
+
   useEffect(() => {
     fetch(`/api/pro/${slug}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`)
+        return r.json()
+      })
       .then(d => { setData(d); setLoading(false) })
+      .catch(e => { setDebugError(String(e?.message ?? e)); setLoading(false) })
   }, [slug])
 
   useEffect(() => {
@@ -241,8 +247,18 @@ export default function ProLeaguePage() {
   )
 
   if (!data?.league) return (
-    <main className="min-h-dvh flex items-center justify-center">
-      <div className="text-white/40">League not found</div>
+    <main className="min-h-dvh flex items-center justify-center px-6">
+      <div className="text-white/40 text-center">
+        <div>League not found</div>
+        {debugError && (
+          <div className="text-red-400 text-xs mt-3 font-mono break-all">{debugError}</div>
+        )}
+        {!debugError && data && (
+          <div className="text-white/20 text-xs mt-3 font-mono break-all">
+            response: {JSON.stringify(data).slice(0, 200)}
+          </div>
+        )}
+      </div>
     </main>
   )
 
