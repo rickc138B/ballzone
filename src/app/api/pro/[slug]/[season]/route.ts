@@ -51,11 +51,32 @@ export async function GET(
       .eq('league_id', league.id)
       .order('name')
 
-    const { data: standings } = await supabase
+    
+    const { data: computedStandings } = await supabase
+      .from('pro_standings_computed')
+      .select('*')
+      .eq('season_id', season.id)
+      .order('win_pct', { ascending: false, nullsFirst: false })
+
+    const { data: aggregateStandings } = await supabase
       .from('pro_team_seasons')
       .select('*, team:pro_teams(id, name, conference, is_dq)')
       .eq('season_id', season.id)
       .order('win_pct', { ascending: false, nullsFirst: false })
+
+    const standings = computedStandings && computedStandings.length > 0
+      ? computedStandings.map(s => ({
+          id: s.team_id,
+          games_played: Number(s.games_played),
+          wins: Number(s.wins),
+          losses: Number(s.losses),
+          points_for: Number(s.points_for),
+          points_against: Number(s.points_against),
+          win_pct: s.win_pct !== null ? Number(s.win_pct) : null,
+          team: { id: s.team_id, name: s.team_name, conference: s.conference, is_dq: s.is_dq }
+        }))
+      : aggregateStandings ?? []
+
 
     return NextResponse.json({
       league,
