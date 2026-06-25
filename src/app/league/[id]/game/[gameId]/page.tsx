@@ -49,6 +49,7 @@ export default function LeagueGamePage() {
   const [commentBody, setCommentBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [copiedBox, setCopiedBox] = useState(false)
 
   useEffect(() => {
     fetch(`/api/leagues/${leagueId}/game/${gameId}`)
@@ -161,7 +162,6 @@ export default function LeagueGamePage() {
   const isScheduled = game.home_team.score === null && game.away_team.score === null
   const homeWon = !isScheduled && game.home_team.score > game.away_team.score
   const displayTeam = activeTeam === 'home' ? game.home_team : game.away_team
-  const [copiedBox, setCopiedBox] = useState(false)
   const topScorer = [...(game.home_team.players ?? []), ...(game.away_team.players ?? [])]
     .sort((a, b) => b.pts - a.pts)[0]
 
