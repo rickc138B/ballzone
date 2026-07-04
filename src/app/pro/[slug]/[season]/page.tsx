@@ -23,6 +23,7 @@ type Team = {
 type Standing = {
   id: string; games_played: number; wins: number; losses: number
   points_for: number; points_against: number; win_pct: number | null
+  playoff_seed?: number | null
   team: { id: string; name: string; conference: string | null; is_dq: boolean }
 }
 
@@ -230,7 +231,13 @@ function StandingsTable({ standings }: { standings: Standing[] }) {
                 {rows.map(s => (
                   <tr key={s.id} className={`text-white/70 ${s.team.is_dq ? 'opacity-40' : ''}`}>
                     <td className="px-3 py-2.5 font-semibold text-white whitespace-nowrap">
-                      {s.team.name}{s.team.is_dq && <span className="text-red-400 text-[10px] ml-1">DQ</span>}
+                      {s.team.name}
+                      {s.team.is_dq && <span className="text-red-400 text-[10px] ml-1">DQ</span>}
+                      {!s.team.is_dq && s.playoff_seed != null && (
+                        <span className="text-green-400 text-[10px] ml-1.5 font-bold border border-green-400/40 rounded px-1 py-0.5">
+                          Q{s.playoff_seed}
+                        </span>
+                      )}
                     </td>
                     <td className="text-center px-2 py-2.5">{s.games_played}</td>
                     <td className="text-center px-2 py-2.5">{s.wins}</td>

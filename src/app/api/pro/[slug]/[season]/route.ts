@@ -64,6 +64,10 @@ export async function GET(
       .eq('season_id', season.id)
       .order('win_pct', { ascending: false, nullsFirst: false })
 
+    const playoffSeedByTeamId = new Map(
+      (teams ?? []).map(t => [t.id, t.playoff_seed ?? null])
+    )
+
     const standings = computedStandings && computedStandings.length > 0
       ? computedStandings.map(s => ({
           id: s.team_id,
@@ -73,6 +77,7 @@ export async function GET(
           points_for: Number(s.points_for),
           points_against: Number(s.points_against),
           win_pct: s.win_pct !== null ? Number(s.win_pct) : null,
+          playoff_seed: playoffSeedByTeamId.get(s.team_id) ?? null,
           team: { id: s.team_id, name: s.team_name, conference: s.conference, is_dq: s.is_dq }
         }))
       : aggregateStandings ?? []
