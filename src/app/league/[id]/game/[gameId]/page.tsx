@@ -376,17 +376,17 @@ export default function LeagueGamePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {(displayTeam.players ?? []).sort((a, b) => b.pts - a.pts).map(p => (
+                    {(displayTeam.players ?? []).sort((a, b) => (b.pts ?? -1) - (a.pts ?? -1)).map(p => (
                       <tr key={p.id} className="text-white/70">
                         <td className="px-3 py-2.5 whitespace-nowrap"><Link href={`/league/${leagueId}/player/${p.league_player_id}`} className="font-semibold text-white active:text-orange-400">{p.display_name}</Link></td>
-                        <td className="text-center px-2 py-2.5 text-orange-400 font-bold">{p.pts}</td>
-                        <td className="text-center px-2 py-2.5">{p.reb}</td>
-                        <td className="text-center px-2 py-2.5">{p.ast}</td>
-                        <td className="text-center px-2 py-2.5">{p.stl}</td>
-                        <td className="text-center px-2 py-2.5">{p.blk}</td>
-                        <td className="text-center px-2 py-2.5 tabular-nums">{p.fgm}/{p.fga}</td>
-                        <td className="text-center px-2 py-2.5 tabular-nums">{p.three_pm}/{p.three_pa}</td>
-                        <td className="text-center px-2 py-2.5 tabular-nums">{p.ftm}/{p.fta}</td>
+                        <td className="text-center px-2 py-2.5 text-orange-400 font-bold">{p.pts ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5">{p.reb ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5">{p.ast ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5">{p.stl ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5">{p.blk ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5 tabular-nums">{p.fgm ?? '-'}/{p.fga ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5 tabular-nums">{p.three_pm ?? '-'}/{p.three_pa ?? '-'}</td>
+                        <td className="text-center px-2 py-2.5 tabular-nums">{p.ftm ?? '-'}/{p.fta ?? '-'}</td>
                       </tr>
                     ))}
                   </tbody>
